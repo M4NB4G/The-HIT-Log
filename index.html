@@ -289,8 +289,9 @@ function setAccent(code){
    ============================================================ */
 const LIB = {
   fly:      {n:"Dumbbell Flies",            g:"Chest",           rr:"10-15", mult:2, step:5,  unit:"per dumbbell",     baseSet:"11x75",  baseOn:"2026-01-22"},
-  incline:  {n:"Incline DB Press",          g:"Chest",           rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"9x75",   baseOn:"2026-04-03", warn:"Never superset this."},
-  flat:     {n:"Flat DB Press",             g:"Chest",           rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"",       baseOn:"",           warn:"New movement - first set sets the baseline."},
+  incline:  {n:"Low-Incline DB Press",      g:"Chest",           rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"9x75",   baseOn:"2026-04-03", warn:"Your usual near-flat angle. Never superset this."},
+  /* id "flat" kept for data continuity; the movement is a true 30-40 deg incline. */
+  flat:     {n:"Incline DB Press (30\u00B0)", g:"Chest",           rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"",       baseOn:"",           warn:"Set the bench to 30-40\u00B0, not your usual low angle. First set sets the baseline."},
   pulldown: {n:"Palms-Up Pulldown",         g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"10x209", baseOn:"2026-05-08"},
   row:      {n:"Seated Cable Row",          g:"Back",            rr:"6-12",  mult:1, step:10, unit:"V-handle",         baseSet:"8x225",  baseOn:"2026-07-28"},
   deadlift: {n:"Barbell Deadlift",          g:"Posterior Chain", rr:"6-10",  mult:1, step:10, unit:"total bar",        baseSet:"11x355", baseOn:"2026-06-21"},
