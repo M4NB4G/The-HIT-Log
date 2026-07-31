@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#F8F9FA">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="HIT Log">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>HIT Log</title>
@@ -615,7 +619,10 @@ function viewData(){
     + (HAS_LS
         ? 'Saved on this device. '+S.sessions.length+' session'+(S.sessions.length === 1 ? '' : 's')+', '+nSets+' sets. Nothing leaves your phone.'
         : '<strong style="color:var(--amber-on)">Preview mode - nothing persists.</strong> Deploy this file to a real URL and localStorage takes over.')
-    + '</p><button class="btn-o" onclick="exportJSON()">Export JSON</button>'
+    + '</p>'
+    + (deferredPrompt ? '<button class="btn-o" style="border-color:var(--blue);background:var(--blue-c)" onclick="doInstall()">Install on this phone</button>' : '')
+    + (isStandalone() ? '<p style="margin:-6px 0 12px;color:var(--green-on)">Installed and running from your home screen.</p>' : '')
+    + '<button class="btn-o" onclick="exportJSON()">Export JSON</button>'
     + '<button class="btn-o" onclick="document.getElementById(\'imp\').click()">Import JSON</button>'
     + '<input type="file" id="imp" accept="application/json" class="hide" onchange="importJSON(this)">'
     + '<button class="btn-o danger" onclick="wipe()">Erase all sessions</button></div>'
@@ -762,6 +769,29 @@ function renderKeepFocus(k){
   var el = k === "weight" ? ins[0] : ins[1];
   if(el){ el.focus(); try{ el.setSelectionRange(pos, pos); }catch(e){} }
 }
+/* ---------------- PWA: install prompt + service worker ---------------- */
+var deferredPrompt = null;
+function isStandalone(){
+  return window.matchMedia && window.matchMedia("(display-mode: standalone)").matches
+      || window.navigator.standalone === true;
+}
+window.addEventListener("beforeinstallprompt", function(e){
+  e.preventDefault();          // suppress Chrome's mini-infobar, use our own button
+  deferredPrompt = e;
+  if(tab === "data") render();
+});
+function doInstall(){
+  if(!deferredPrompt) return toast("Use the browser menu, then Add to Home screen");
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(function(){ deferredPrompt = null; render(); });
+}
+window.addEventListener("appinstalled", function(){ deferredPrompt = null; toast("Installed"); render(); });
+if("serviceWorker" in navigator){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){ /* offline support unavailable */ });
+  });
+}
+
 (function(){
   var btns = document.querySelectorAll(".nav button");
   for(var i=0;i<btns.length;i++){
