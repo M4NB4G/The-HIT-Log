@@ -288,32 +288,47 @@ function setAccent(code){
    mult:2 means you enter ONE dumbbell and the app doubles it internally.
    ============================================================ */
 const LIB = {
-  fly:      {n:"Dumbbell Flies",            g:"Chest",           rr:"10-15", mult:2, step:5,  unit:"per dumbbell",     baseSet:"11x75",  baseOn:"2026-01-22"},
-  incline:  {n:"Low-Incline DB Press",      g:"Chest",           rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"9x75",   baseOn:"2026-04-03", warn:"Your usual near-flat angle. Never superset this."},
+  fly:      {n:"Dumbbell Flies",            g:"Chest",           rr:"10-15", mult:2, step:5,  unit:"per dumbbell",     baseSet:"", baseOn:""},
+  incline:  {n:"Low-Incline DB Press",      g:"Chest",           rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"", baseOn:"", warn:"Your usual near-flat angle. Never superset this."},
   /* id "flat" kept for data continuity; the movement is a true 30-40 deg incline. */
   flat:     {n:"Incline DB Press (30\u00B0)", g:"Chest",           rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"",       baseOn:"",           warn:"Set the bench to 30-40\u00B0, not your usual low angle. First set sets the baseline."},
-  pulldown: {n:"Palms-Up Pulldown",         g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"10x209", baseOn:"2026-05-08"},
-  row:      {n:"Seated Cable Row",          g:"Back",            rr:"6-12",  mult:1, step:10, unit:"V-handle",         baseSet:"8x225",  baseOn:"2026-07-28"},
-  deadlift: {n:"Barbell Deadlift",          g:"Posterior Chain", rr:"6-10",  mult:1, step:10, unit:"total bar",        baseSet:"11x355", baseOn:"2026-06-21"},
-  legext:   {n:"Seated Leg Extension",      g:"Quads",           rr:"12-20", mult:1, step:10, unit:"stack",            baseSet:"17x260", baseOn:"2026-07-21"},
-  legpress: {n:"Leg Press",                 g:"Quads",           rr:"12-20", mult:1, step:20, unit:"total sled",       baseSet:"23x640", baseOn:"2026-06-27"},
-  squat:    {n:"Smith Machine Squat",       g:"Quads",           rr:"12-20", mult:1, step:10, unit:"total bar",        baseSet:"13x260", baseOn:"2026-07-21"},
-  legcurl:  {n:"Seated Leg Curl",           g:"Hamstrings",      rr:"12-20", mult:1, step:10, unit:"stack",            baseSet:"17x200", baseOn:"2026-06-27"},
-  donkey:   {n:"Donkey Calf Raise",         g:"Calves",          rr:"12-20", mult:1, step:20, unit:"total load",       baseSet:"20x630", baseOn:"2026-05-01"},
-  calf:     {n:"Seated Calf Raise",         g:"Calves",          rr:"12-20", mult:1, step:10, unit:"total load",       baseSet:"20x400", baseOn:"2026-02-24"},
-  abs:      {n:"Ab Machine",                g:"Abs",             rr:"12-20", mult:1, step:10, unit:"stack",            baseSet:"24x150", baseOn:"2026-04-10"},
-  facepull: {n:"Seated Face Pulls",         g:"Rear Delts",      rr:"14-20", mult:1, step:5,  unit:"stack",            baseSet:"11x40",  baseOn:"2026-07-09"},
-  lateral:  {n:"DB Lateral Raise",          g:"Delts",           rr:"6-12",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"10x30",  baseOn:"2026-07-09"},
-  revfly:   {n:"Cable Reverse Fly",         g:"Rear Delts",      rr:"6-12",  mult:2, step:5,  unit:"per side",         baseSet:"13x20",  baseOn:"2026-07-09"},
-  curl:     {n:"Palms-Up Pulldown (Bicep)", g:"Biceps",          rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"10x231", baseOn:"2026-03-19"},
-  pushdown: {n:"Triceps Pushdown",          g:"Triceps",         rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"11x110", baseOn:"2026-05-22"},
-  dips:     {n:"Dips",                      g:"Chest",           rr:"5-12",  mult:1, step:5,  unit:"lb", bw:true,        baseSet:"6x297", baseOn:"2026-04-24", warn:"Ramp back over 3-4 cycles. Stop if the right pec talks."},
+  pulldown: {n:"Palms-Up Pulldown",         g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
+  row:      {n:"Seated Cable Row",          g:"Back",            rr:"6-12",  mult:1, step:10, unit:"V-handle",         baseSet:"", baseOn:""},
+  deadlift: {n:"Barbell Deadlift",          g:"Posterior Chain", rr:"6-10",  mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:""},
+  legext:   {n:"Seated Leg Extension",      g:"Quads",           rr:"12-20", mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
+  legpress: {n:"Leg Press",                 g:"Quads",           rr:"12-20", mult:1, step:20, unit:"total sled",       baseSet:"", baseOn:""},
+  squat:    {n:"Smith Machine Squat",       g:"Quads",           rr:"12-20", mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:""},
+  legcurl:  {n:"Seated Leg Curl",           g:"Hamstrings",      rr:"12-20", mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
+  donkey:   {n:"Donkey Calf Raise",         g:"Calves",          rr:"12-20", mult:1, step:20, unit:"total load",       baseSet:"", baseOn:""},
+  calf:     {n:"Seated Calf Raise",         g:"Calves",          rr:"12-20", mult:1, step:10, unit:"total load",       baseSet:"", baseOn:""},
+  abs:      {n:"Ab Machine",                g:"Abs",             rr:"12-20", mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
+  facepull: {n:"Seated Face Pulls",         g:"Rear Delts",      rr:"14-20", mult:1, step:5,  unit:"stack",            baseSet:"", baseOn:""},
+  lateral:  {n:"DB Lateral Raise",          g:"Delts",           rr:"6-12",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"", baseOn:""},
+  revfly:   {n:"Cable Reverse Fly",         g:"Rear Delts",      rr:"6-12",  mult:2, step:5,  unit:"per side",         baseSet:"", baseOn:""},
+  curl:     {n:"Palms-Up Pulldown (Bicep)", g:"Biceps",          rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
+  pushdown: {n:"Triceps Pushdown",          g:"Triceps",         rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
+  dips:     {n:"Dips",                      g:"Chest",           rr:"5-12",  mult:1, step:5,  unit:"lb", bw:true,      baseSet:"", baseOn:"", warn:"Ramp back over 3-4 cycles. Stop if the right pec talks."},
   pecdeck:  {n:"Pec Deck",                  g:"Chest",           rr:"6-10",  mult:1, step:10, unit:"stack",            baseSet:"",       baseOn:""},
   crossover:{n:"Cable Crossover",           g:"Chest",           rr:"6-10",  mult:1, step:5,  unit:"both sides",       baseSet:"",       baseOn:""},
-  pullover: {n:"Nautilus Lat Pullover",      g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"7x240",  baseOn:"2026-04-03", warn:"Lat pre-exhaust for the pulldown. Rest until your heart rate settles before the pulldown — muscular failure, not breathing failure."},
-  sapd:     {n:"Straight-Arm Pulldown",     g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"7x110",  baseOn:"2025-11-17"},
+  pullover: {n:"Nautilus Lat Pullover",      g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"", baseOn:"", warn:"Lat pre-exhaust for the pulldown. Rest until your heart rate settles before the pulldown — muscular failure, not breathing failure."},
+  sapd:     {n:"Straight-Arm Pulldown",     g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
   bentlat:  {n:"Bent-Over Laterals",        g:"Rear Delts",      rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"",       baseOn:""},
-  bbcurl:   {n:"Barbell Curl",              g:"Biceps",          rr:"6-12",  mult:1, step:5,  unit:"total bar",        baseSet:"8x80",   baseOn:"2026-04-24"}
+  bbcurl:   {n:"Barbell Curl",              g:"Biceps",          rr:"6-12",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""}
+};
+
+/* Snapshot of pre-strip baselines for migrating existing users */
+const LEGACY_BASELINES = {
+  fly:{set:"11x75",date:"2026-01-22"}, incline:{set:"9x75",date:"2026-04-03"},
+  pulldown:{set:"10x209",date:"2026-05-08"}, row:{set:"8x225",date:"2026-07-28"},
+  deadlift:{set:"11x355",date:"2026-06-21"}, legext:{set:"17x260",date:"2026-07-21"},
+  legpress:{set:"23x640",date:"2026-06-27"}, squat:{set:"13x260",date:"2026-07-21"},
+  legcurl:{set:"17x200",date:"2026-06-27"}, donkey:{set:"20x630",date:"2026-05-01"},
+  calf:{set:"20x400",date:"2026-02-24"}, abs:{set:"24x150",date:"2026-04-10"},
+  facepull:{set:"11x40",date:"2026-07-09"}, lateral:{set:"10x30",date:"2026-07-09"},
+  revfly:{set:"13x20",date:"2026-07-09"}, curl:{set:"10x231",date:"2026-03-19"},
+  pushdown:{set:"11x110",date:"2026-05-22"}, dips:{set:"6x297",date:"2026-04-24"},
+  pullover:{set:"7x240",date:"2026-04-03"}, sapd:{set:"7x110",date:"2025-11-17"},
+  bbcurl:{set:"8x80",date:"2026-04-24"}
 };
 
 const DEFAULT_PROGRAM = {
@@ -328,7 +343,7 @@ const TARGET_DAYS = 21;
 const KEY = "hitlog.v2";
 let mem = null;
 const HAS_LS = (function(){ try{ localStorage.setItem("__t","1"); localStorage.removeItem("__t"); return true; }catch(e){ return false; } })();
-function blank(){ return {sessions:[], draft:null, program:JSON.parse(JSON.stringify(DEFAULT_PROGRAM)), custom:{}}; }
+function blank(){ return {sessions:[], draft:null, program:JSON.parse(JSON.stringify(DEFAULT_PROGRAM)), custom:{}, baselines:{}}; }
 function load(){
   let d;
   if(!HAS_LS) d = mem || (mem = blank());
@@ -336,6 +351,7 @@ function load(){
   if(!d.program) d.program = JSON.parse(JSON.stringify(DEFAULT_PROGRAM));
   if(!d.custom) d.custom = {};
   if(!d.sessions) d.sessions = [];
+  if(!d.baselines){ d.baselines = {}; for(var k in LEGACY_BASELINES) d.baselines[k] = JSON.parse(JSON.stringify(LEGACY_BASELINES[k])); }
   return d;
 }
 function save(){ if(HAS_LS){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} } else { mem = S; } }
@@ -365,9 +381,9 @@ function lastFor(id){
 function lastKnown(id){
   var l = lastFor(id);
   if(l) return {reps:l.reps, weight:l.weight, date:l.date, seeded:false};
-  var e = exOf(id); if(!e || !e.baseSet) return null;
-  var m = e.baseSet.match(/(\d+)\s*x\s*([\d.]+)/i); if(!m) return null;
-  return {reps:+m[1], weight:+m[2], date:e.baseOn, seeded:true};
+  var b = S.baselines[id]; if(!b || !b.set) return null;
+  var m = b.set.match(/(\d+)\s*x\s*([\d.]+)/i); if(!m) return null;
+  return {reps:+m[1], weight:+m[2], date:b.date, seeded:true};
 }
 /** DOUBLE PROGRESSION: met or beat the top of the range last time -> add one weight step, reset reps to the bottom. */
 function targetFor(id){
@@ -378,9 +394,10 @@ function targetFor(id){
 }
 function bestFor(id){
   var e = exOf(id), best = null;
-  if(e.baseSet){
-    var m = e.baseSet.match(/(\d+)\s*x\s*([\d.]+)/i);
-    if(m) best = {reps:+m[1], weight:+m[2], e1:e1rm(+m[1], +m[2], e.mult), date:e.baseOn, seeded:true};
+  var b = S.baselines[id];
+  if(b && b.set){
+    var m = b.set.match(/(\d+)\s*x\s*([\d.]+)/i);
+    if(m) best = {reps:+m[1], weight:+m[2], e1:e1rm(+m[1], +m[2], e.mult), date:b.date, seeded:true};
   }
   setsFor(id).forEach(function(x){ if(!best || x.e1 > best.e1) best = {reps:x.reps, weight:x.weight, e1:x.e1, date:x.date, seeded:false}; });
   return best;
@@ -627,6 +644,9 @@ function viewData(){
     + '<button class="btn-o" onclick="exportJSON()">Export JSON</button>'
     + '<button class="btn-o" onclick="document.getElementById(\'imp\').click()">Import JSON</button>'
     + '<input type="file" id="imp" accept="application/json" class="hide" onchange="importJSON(this)">'
+    + '<button class="btn-o" onclick="document.getElementById(\'blImp\').click()">Load baselines</button>'
+    + '<input type="file" id="blImp" accept="application/json" class="hide" onchange="importBaselines(this)">'
+    + '<button class="btn-o" onclick="exportBaselines()">Export baselines</button>'
     + '<button class="btn-o danger" onclick="wipe()">Erase all sessions</button></div>'
     + '<div class="panel"><h3>Standing rules</h3><p style="margin:0">'
     + 'One working set per exercise, to true concentric failure. Warm-ups are not logged.<br><br>'
@@ -752,6 +772,30 @@ function importJSON(input){
 function wipe(){
   if(!confirm("Erase every logged session on this device? Export first if you want a copy.")) return;
   S.sessions = []; S.draft = null; save(); toast("Sessions erased"); render();
+}
+function importBaselines(input){
+  var f = input.files[0]; if(!f) return;
+  var r = new FileReader();
+  r.onload = function(){
+    try{
+      var d = JSON.parse(r.result), count = 0;
+      for(var k in d){ if(d[k] && d[k].set){ S.baselines[k] = {set:d[k].set, date:d[k].date || ""}; count++; } }
+      save(); toast("Loaded "+count+" baselines"); render();
+    }catch(e){ toast("Bad baselines file"); }
+    input.value = "";
+  };
+  r.readAsText(f);
+}
+function exportBaselines(){
+  var out = {};
+  var A = allEx();
+  for(var id in A){
+    if(S.baselines[id] && S.baselines[id].set){ out[id] = S.baselines[id]; }
+    else { var b = bestFor(id); if(b) out[id] = {set:b.reps+"x"+b.weight, date:b.date}; else out[id] = {}; }
+  }
+  var blob = new Blob([JSON.stringify(out, null, 2)], {type:"application/json"});
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "hitlog-baselines_"+today()+".json"; a.click(); URL.revokeObjectURL(a.href);
 }
 
 /* ---------------- render ---------------- */
