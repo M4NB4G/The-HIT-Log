@@ -497,6 +497,8 @@ function viewSession(d){
     + '<div class="rowtop"><div class="tile">'+d.workout+'</div><div style="flex:1">'
     + '<div class="focus">'+esc(focusOf(d.workout))+'</div>'
     + '<div class="meta">'+d.sets.length+' set'+(d.sets.length === 1 ? "" : "s")+' logged &middot; '+remaining+' to go</div></div></div>'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><span style="font-size:13px;color:var(--txt-2)">Bodyweight</span>'
+    + '<input type="number" inputmode="decimal" placeholder="lb" style="width:80px;min-height:38px;background:var(--surface-2);border:1px solid var(--outline);border-radius:10px;padding:0 10px;font-family:var(--mono);font-size:15px;color:var(--txt)" value="'+(d.bodyweight || '')+'" oninput="setBW(this.value)"></div>'
     + '<button class="btn-start resume" onclick="finishSession()">'+(d.sets.length ? "Finish and save session" : "Cancel session")+'</button></section>'
     + cards
     + (adding
@@ -709,6 +711,7 @@ function pickerFor(c){
 function empty(b,m){ return '<div class="empty"><div class="big">'+b+'</div><p>'+m+'</p></div>'; }
 
 /* ============================================================ ACTIONS */
+function setBW(v){ if(S.draft){ S.draft.bodyweight = v === "" ? null : Number(v); save(); } }
 function toggle(id){ open_ = open_ === id ? null : id; if(open_) entryFor(open_, true); render(); }
 function setv(id,k,v){
   var st = entryFor(id);
@@ -733,13 +736,17 @@ function commit(id){
   delete entry[id]; open_ = null; render();
 }
 function startSession(code, cycle){
-  S.draft = {date:today(), workout:code, cycle:cycle, sets:[], order:resolveList(code, cycle)};
+  var prevBW = null;
+  for(var i = S.sessions.length - 1; i >= 0; i--){ if(S.sessions[i].bodyweight != null){ prevBW = S.sessions[i].bodyweight; break; } }
+  S.draft = {date:today(), workout:code, cycle:cycle, sets:[], order:resolveList(code, cycle), bodyweight:prevBW};
   pick = null; save(); render();
 }
 function finishSession(){
   var d = S.draft; if(!d) return;
   if(!d.sets.length){ S.draft = null; save(); render(); return; }
-  S.sessions.push({date:d.date, workout:d.workout, cycle:d.cycle, sets:d.sets});
+  var sess = {date:d.date, workout:d.workout, cycle:d.cycle, sets:d.sets};
+  if(d.bodyweight != null) sess.bodyweight = d.bodyweight;
+  S.sessions.push(sess);
   S.sessions.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
   S.draft = null; save(); toast("Session saved"); tab = "history"; render();
 }
