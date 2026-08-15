@@ -695,7 +695,8 @@ function pickerFor(c){
       + '<div><label>Muscle group</label><input id="nf_g" placeholder="Chest"></div>'
       + '<div><label>Rep range</label><input id="nf_r" placeholder="6-10"></div>'
       + '<div><label>Load type</label><select id="nf_m"><option value="1">Single load</option><option value="2">Per dumbbell / side</option></select></div>'
-      + '<div><label>Weight step</label><input id="nf_s" type="number" inputmode="decimal" value="5"></div></div>'
+      + '<div><label>Weight step</label><input id="nf_s" type="number" inputmode="decimal" value="5"></div>'
+      + '<div><label>Bump %</label><input id="nf_p" type="number" inputmode="decimal" value="5"></div></div>'
       + '<div class="mini-row"><button class="mini" onclick="createEx(\''+c+'\')">Save exercise</button>'
       + '<button class="mini warn" onclick="newForm=false;render()">Cancel</button></div></div>';
   }
@@ -767,7 +768,7 @@ function createEx(c){
   var mult = Number(document.getElementById("nf_m").value) || 1;
   var id = "cx_" + Date.now().toString(36);
   S.custom[id] = {n:n, g:g("nf_g") || "Other", rr:rr.replace(/\s/g,""), mult:mult,
-    step:Number(g("nf_s")) || 5, unit: mult === 2 ? "per dumbbell" : "load", baseSet:"", baseOn:""};
+    step:Number(g("nf_s")) || 5, pct:Number(g("nf_p")) || 5, unit: mult === 2 ? "per dumbbell" : "load", baseSet:"", baseOn:""};
   S.program[c].list.push(id); newForm = false; addTo = null; save(); toast(n + " added"); render();
 }
 function resetProgram(){
@@ -775,8 +776,10 @@ function resetProgram(){
   S.program = JSON.parse(JSON.stringify(DEFAULT_PROGRAM)); save(); toast("Program reset"); render();
 }
 function exportJSON(){
+  var A = allEx(), lib = {};
+  for(var k in A){ var ex = A[k]; lib[k] = {n:ex.n, g:ex.g, rr:ex.rr, mult:ex.mult, step:ex.step, pct:ex.pct == null ? 5 : ex.pct, unit:ex.unit}; if(ex.bw) lib[k].bw = true; }
   var payload = {app:"hitlog", version:2, exported:new Date().toISOString(),
-                 sessions:S.sessions, draft:S.draft, program:S.program, custom:S.custom};
+                 sessions:S.sessions, draft:S.draft, program:S.program, custom:S.custom, library:lib, baselines:S.baselines};
   var blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "hitlog_"+today()+".json"; a.click();
