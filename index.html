@@ -729,7 +729,7 @@ function commit(id){
   if(!weight || weight <= 0) return toast("Enter a weight first");
   var hi = range(e)[1];
   S.draft.sets.push({ex:id, reps:reps, weight:weight, failure:st.failure, note:st.note || "",
-                     e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult});
+                     e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult, t:new Date().toISOString()});
   save();
   toast(reps >= hi ? "Top of range - "+bumpWeight(weight, e)+" lb next time" : "Logged - "+reps+" x "+weight, reps >= hi);
   delete entry[id]; open_ = null; render();
