@@ -614,8 +614,7 @@ function viewHistory(){
       + '<div class="body'+(i === 0 ? '' : ' hide')+'">'
       + s.sets.map(function(x){ var e = exOf(x.ex);
           return '<div class="set"><span class="sn">'+esc(e ? e.n : x.ex)+'</span>'
-            + '<span class="sv">'+x.reps+' &times; '+x.weight+(e ? suffix(e) : '')+'</span>'
-            + '<span class="se">'+x.e1+'</span></div>'
+            + '<span class="sv">'+x.reps+' &times; '+x.weight+(e ? suffix(e) : '')+'</span></div>'
             + (x.note ? '<div class="set-note">'+esc(x.note)+'</div>' : ''); }).join("")
       + '</div></article>';
   }).join("");
