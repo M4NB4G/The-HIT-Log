@@ -385,22 +385,34 @@ function lastKnown(id){
   var m = b.set.match(/(\d+)\s*x\s*([\d.]+)/i); if(!m) return null;
   return {reps:+m[1], weight:+m[2], date:b.date, seeded:true};
 }
-/** DOUBLE PROGRESSION: met or beat the top of the range last time -> add one weight step, reset reps to the bottom. */
-function targetFor(id){
-  var e = exOf(id), r = range(e), lo = r[0], hi = r[1], prev = lastKnown(id);
-  if(!prev) return {reps:lo, weight:null, bumped:false, prev:null, lo:lo, hi:hi};
-  if(prev.reps >= hi) return {reps:lo, weight:prev.weight + e.step, bumped:true, prev:prev, lo:lo, hi:hi};
-  return {reps:prev.reps + 1, weight:prev.weight, bumped:false, prev:prev, lo:lo, hi:hi};
+function bumpWeight(w, e){
+  var raw = w * (e.pct == null ? 5 : e.pct) / 100;
+  return w + Math.max(e.step, Math.round(raw / e.step) * e.step);
 }
+/** PR = most reps at the heaviest weight achieved. Weight takes priority. */
 function bestFor(id){
   var e = exOf(id), best = null;
+  function better(r, w, e1, date, seeded){
+    var ew = w * e.mult, bw = best ? best.weight * e.mult : -1;
+    if(!best || ew > bw || (ew === bw && r > best.reps))
+      best = {reps:r, weight:w, e1:e1, date:date, seeded:seeded};
+  }
   var b = S.baselines[id];
   if(b && b.set){
     var m = b.set.match(/(\d+)\s*x\s*([\d.]+)/i);
-    if(m) best = {reps:+m[1], weight:+m[2], e1:e1rm(+m[1], +m[2], e.mult), date:b.date, seeded:true};
+    if(m) better(+m[1], +m[2], e1rm(+m[1], +m[2], e.mult), b.date, true);
   }
-  setsFor(id).forEach(function(x){ if(!best || x.e1 > best.e1) best = {reps:x.reps, weight:x.weight, e1:x.e1, date:x.date, seeded:false}; });
+  setsFor(id).forEach(function(x){ better(x.reps, x.weight, x.e1, x.date, false); });
   return best;
+}
+/** DOUBLE PROGRESSION: target derives from the PR (best set), not the last set. */
+function targetFor(id){
+  var e = exOf(id), r = range(e), lo = r[0], hi = r[1];
+  var pr = bestFor(id), last = lastKnown(id);
+  if(!pr) return {reps:lo, weight:null, bumped:false, pr:null, last:last, lo:lo, hi:hi};
+  if(e.bw) return {reps:Math.min(pr.reps + 1, hi) === hi && pr.reps >= hi ? lo : pr.reps + 1, weight:null, bumped:false, pr:pr, last:last, lo:lo, hi:hi, bwEx:true};
+  if(pr.reps >= hi) return {reps:lo, weight:bumpWeight(pr.weight, e), bumped:true, pr:pr, last:last, lo:lo, hi:hi};
+  return {reps:pr.reps + 1, weight:pr.weight, bumped:false, pr:pr, last:last, lo:lo, hi:hi};
 }
 function lastGroupDate(g){
   var d = null;
@@ -506,7 +518,7 @@ function card(d, id, i){
     var s = logged[logged.length-1];
     return '<article class="card done"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">&#10003;</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
-      + '<span class="r">'+s.reps+' &times; '+s.weight+suffix(e)+' &middot; '+s.e1+' lb e1RM</span></span>'
+      + '<span class="r">'+s.reps+' &times; '+s.weight+suffix(e)+'</span></span>'
       + (s.reps >= hi ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
       + '</button></article>';
   }
@@ -515,8 +527,8 @@ function card(d, id, i){
   if(!isOpen){
     return '<article class="card"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">'+(i+1)+'</span><span class="cname"><span class="n">'+esc(e.n)+'</span><span class="r">'
-      + (t.prev ? 'last '+t.prev.reps+' &times; '+t.prev.weight+suffix(e)+' &rarr; ' : '')
-      + '<b>'+(t.weight === null ? 'set baseline' : t.reps+' &times; '+t.weight+suffix(e))+'</b>'
+      + (t.pr ? 'last '+(t.last ? t.last.reps+' &times; '+t.last.weight+suffix(e) : '&mdash;')+' &rarr; ' : '')
+      + '<b>'+(t.weight === null ? (t.bwEx ? t.reps+' reps' : 'set baseline') : t.reps+' &times; '+t.weight+suffix(e))+'</b>'
       + '</span></span></button></article>';
   }
 
@@ -527,23 +539,39 @@ function card(d, id, i){
   var atTop = reps >= hi;
   var partner = altPartner(d.workout, d.cycle, id);
 
+  var sameLastPR = t.last && t.pr && t.last.reps === t.pr.reps && t.last.weight === t.pr.weight && t.last.date === t.pr.date;
+
   var cap, capCls = "";
-  if(!t.prev){ cap = "No history - this set becomes the baseline."; }
-  else if(reps < t.reps){ cap = (t.reps - reps)+" short of target. Last time: "+t.prev.reps+" &times; "+t.prev.weight+suffix(e)+"."; }
-  else if(atTop){ cap = "Top of the range. Next session goes to "+(wt + e.step)+" lb."; capCls = "top"; }
-  else if(reps === t.reps){ cap = "On target - beats last time. "+(hi - reps)+" more earns the next weight jump."; capCls = "good"; }
+  if(!t.pr){ cap = "No history - this set becomes the baseline."; }
+  else if(t.bwEx){ cap = "Bodyweight exercise - enter today's weight."; }
+  else if(reps < t.reps){ cap = (t.reps - reps)+" short of your PR: "+t.pr.reps+" &times; "+t.pr.weight+suffix(e)+"."; }
+  else if(atTop){ cap = "Top of the range. Next session goes to "+bumpWeight(wt, e)+" lb."; capCls = "top"; }
+  else if(reps === t.reps){ cap = "On target - beats your PR. "+(hi - reps)+" more earns the next weight jump."; capCls = "good"; }
   else { cap = "+"+(reps - t.reps)+" over target. "+(hi - reps)+" more earns the next weight jump."; capCls = "good"; }
+
+  /* Last / PR / Target lines */
+  var infoLines = '';
+  if(!t.pr){
+    infoLines = '<div class="lastline"><span>Last: <b>&mdash;</b></span><span></span></div>';
+  } else if(sameLastPR){
+    infoLines = '<div class="lastline"><span>Last / PR: <b>'+t.pr.reps+' &times; '+t.pr.weight+suffix(e)+'</b></span><span>'
+      + (t.pr.seeded ? 'archived ' : '')+fmtDate(t.pr.date)+'</span></div>';
+  } else {
+    infoLines = '<div class="lastline"><span>Last: <b>'
+      + (t.last ? t.last.reps+' &times; '+t.last.weight+suffix(e) : '&mdash;')+'</b></span><span>'
+      + (t.last ? fmtDate(t.last.date) : '')+'</span></div>'
+      + '<div class="lastline"><span>PR: <b>'+t.pr.reps+' &times; '+t.pr.weight+suffix(e)+'</b></span><span>'
+      + (t.pr.seeded ? 'archived ' : '')+fmtDate(t.pr.date)+'</span></div>';
+  }
 
   return '<article class="card open"><button class="chead" onclick="toggle(\''+id+'\')">'
     + '<span class="rtile">'+(i+1)+'</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
     + '<span class="r">'+esc(e.rr)+' reps &middot; '+esc(e.unit)+'</span></span></button>'
     + '<div class="cbody">'
-    + (t.bumped ? '<div class="bump">You hit <b>'+t.prev.reps+'</b> reps last time - top of the '+esc(e.rr)
-        + ' range. Weight moves <b>'+t.prev.weight+' &rarr; '+t.weight+'</b>, reps reset to <b>'+lo+'</b>.</div>' : '')
-    + '<div class="lastline"><span>Last: <b>'
-    + (t.prev ? t.prev.reps+' &times; '+t.prev.weight+suffix(e) : '&mdash;')+'</b></span><span>'
-    + (t.prev ? (t.prev.seeded ? 'archived ' : '')+fmtDate(t.prev.date) : '')+'</span></div>'
-    + '<div class="targline">Target: '+(t.weight === null ? 'your call' : t.reps+' &times; '+t.weight+suffix(e))+'</div>'
+    + (t.bumped ? '<div class="bump">You hit <b>'+t.pr.reps+'</b> reps at your PR - top of the '+esc(e.rr)
+        + ' range. Weight moves <b>'+t.pr.weight+' &rarr; '+t.weight+'</b>, reps reset to <b>'+lo+'</b>.</div>' : '')
+    + infoLines
+    + '<div class="targline">Target: '+(t.weight === null ? (t.bwEx ? t.reps+' reps (enter weight)' : 'your call') : t.reps+' &times; '+t.weight+suffix(e))+'</div>'
     + '<div class="track'+(atTop ? ' hit' : '')+'">'
     + '<div class="fill" style="width:'+pctOf(reps)+'%"></div>'
     + '<div class="tgt" style="left:'+pctOf(t.reps)+'%" data-l="'+t.reps+'"></div>'
@@ -700,7 +728,7 @@ function commit(id){
   S.draft.sets.push({ex:id, reps:reps, weight:weight, failure:st.failure, note:st.note || "",
                      e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult});
   save();
-  toast(reps >= hi ? "Top of range - "+(weight + e.step)+" lb next time" : "Logged - "+reps+" x "+weight, reps >= hi);
+  toast(reps >= hi ? "Top of range - "+bumpWeight(weight, e)+" lb next time" : "Logged - "+reps+" x "+weight, reps >= hi);
   delete entry[id]; open_ = null; render();
 }
 function startSession(code, cycle){
