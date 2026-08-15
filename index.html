@@ -337,7 +337,7 @@ const DEFAULT_PROGRAM = {
   C:{focus:"Shoulders & Arms", list:["lateral","revfly","curl","bbcurl","pushdown","dips","facepull"]}
 };
 const ORDER = ["A","B","C"];
-const TARGET_DAYS = 21;
+const TARGET_DAYS = 24;
 
 /* ---------------- storage ---------------- */
 const KEY = "hitlog.v2";
@@ -660,7 +660,7 @@ function viewData(){
   }).join("");
 
   return '<div class="panel"><h3>Program</h3>'
-    + '<p>One session per week, every Friday. A &rarr; B &rarr; C &rarr; A. Tap a workout to add, remove or reorder movements.</p>'
+    + '<p>One session per week, every Tuesday. A &rarr; B &rarr; C &rarr; A. Tap a workout to add, remove or reorder movements.</p>'
     + progHtml
     + '<button class="btn-o" onclick="resetProgram()">Reset program to default</button></div>'
     + '<div class="panel"><h3>Storage</h3><p>'
