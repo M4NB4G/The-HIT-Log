@@ -663,6 +663,7 @@ function toggle(id){ open_ = open_ === id ? null : id; if(open_) entryFor(open_,
 function setv(id,k,v){
   var st = entryFor(id);
   st[k] = (k === "note" || k === "failure") ? v : (v === "" ? "" : Number(v));
+  if(k === "note") return;                       // state only, no re-render
   if(k === "weight" || k === "reps") renderKeepFocus(k); else render();
 }
 function bump(id,k,delta){
