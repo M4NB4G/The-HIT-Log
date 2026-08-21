@@ -352,13 +352,27 @@ function load(){
   if(!d.custom) d.custom = {};
   if(!d.sessions) d.sessions = [];
   if(!d.baselines){ d.baselines = {}; for(var k in LEGACY_BASELINES) d.baselines[k] = JSON.parse(JSON.stringify(LEGACY_BASELINES[k])); }
+  if(!d.dateMigrated && d.sessions && d.sessions.length){
+    d.sessions.forEach(function(s){
+      var dt = new Date(s.date + 'T12:00:00');
+      dt.setDate(dt.getDate() - 1);
+      s.date = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0')
+             + '-' + String(dt.getDate()).padStart(2,'0');
+    });
+    d.dateMigrated = true;
+    if(HAS_LS){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+  }
   return d;
 }
 function save(){ if(HAS_LS){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} } else { mem = S; } }
 let S = load();
 
 /* ---------------- helpers ---------------- */
-function today(){ return new Date().toISOString().slice(0,10); }
+function today(){
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')
+       + '-' + String(d.getDate()).padStart(2,'0');
+}
 function daysBetween(a,b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
 function fmtDate(d){ var p = d.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]).toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
