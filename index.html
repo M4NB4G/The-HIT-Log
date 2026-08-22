@@ -65,9 +65,9 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .seg button[aria-pressed="true"]{background:var(--accent-c);color:var(--accent-on)}
 .seg button[aria-pressed="true"] .f{color:var(--accent-on);opacity:.8}
 
-/* Session-clock readout under the hero. Note the states mean the opposite of
-   the body-part chips: sitting inside the window is the GOOD state here
-   (time to train), whereas a body part inside its window is merely due. */
+/* Session-clock readout under the hero. Reads the same way as the chips -
+   inside the window is green - against the between-sessions window instead
+   of the per-body-part one. */
 .dueline{margin-top:14px;padding:9px 13px;border-radius:100px;font-size:12.5px;font-weight:500;
   background:var(--surface-2);color:var(--txt-2);text-align:center}
 .dueline.ready{background:var(--green-c);color:var(--green-on)}
@@ -92,9 +92,12 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .chip{background:var(--surface);border-radius:12px;padding:10px 11px;box-shadow:var(--e1)}
 .chip .g{font-size:11px;color:var(--txt-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chip .d{font-family:var(--mono);font-size:17px;font-weight:500;margin-top:2px;color:var(--txt)}
-.chip.over{background:var(--red-c)}   .chip.over .d{color:var(--red-on)}   .chip.over .g{color:var(--red-on)}
-.chip.due{background:var(--amber-c)}  .chip.due .d{color:var(--amber-on)}  .chip.due .g{color:var(--amber-on)}
-.chip.ok{background:var(--green-c)}   .chip.ok .d{color:var(--green-on)}   .chip.ok .g{color:var(--green-on)}
+/* over = past the window, ready = inside it, rest = still recovering.
+   "rest" is deliberately uncoloured: nothing is wrong and nothing is due, so
+   it should not compete with the groups that are actually asking for work. */
+.chip.over{background:var(--red-c)}    .chip.over .d{color:var(--red-on)}    .chip.over .g{color:var(--red-on)}
+.chip.ready{background:var(--green-c)} .chip.ready .d{color:var(--green-on)} .chip.ready .g{color:var(--green-on)}
+.chip.rest{background:var(--surface)}  .chip.rest .d{color:var(--txt-2)}
 .chip.none .d{color:var(--txt-3)}
 
 /* ---- exercise cards (Drive-style rows) ---- */
@@ -516,10 +519,10 @@ const TEMPLATES = {
                {alt:["legcurl","sldl"],sets:YL},
                {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
       C:{focus:"Back & Deltoids",
-         note:"One vertical pull and one horizontal pull per session, alternating each time C comes around: palms-up pulldown / chins, then cable row / barbell row.",
+         note:"One vertical pull and one horizontal pull per session, and the pair is always one cable and one free-weight movement. C alternates: pulldown with barbell row, then chins with cable row.",
          list:[{ex:"pullover",sets:Y2},
                {alt:["pulldown","chins"],sets:Y2},
-               {alt:["row","bbrow"],sets:Y2},
+               {alt:["bbrow","row"],sets:Y2},
                {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
                {alt:["bentlat","revfly"],sets:Y2}]}
     }
@@ -544,10 +547,10 @@ const TEMPLATES = {
                {alt:["legcurl","sldl"],sets:YL},
                {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
       C:{focus:"Back & Deltoids",
-         note:"One vertical pull and one horizontal pull per session, alternating each time C comes around: palms-up pulldown / chins, then cable row / barbell row.",
+         note:"One vertical pull and one horizontal pull per session, and the pair is always one cable and one free-weight movement. C alternates: pulldown with barbell row, then chins with cable row.",
          list:[{ex:"pullover",sets:Y2},
                {alt:["pulldown","chins"],sets:Y2},
-               {alt:["row","bbrow"],sets:Y2},
+               {alt:["bbrow","row"],sets:Y2},
                {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
                {alt:["bentlat","revfly"],sets:Y2}]}
     }
@@ -563,9 +566,11 @@ const TEMPLATES = {
       A:{focus:"Chest & Biceps",
          list:[{ex:"bbbench",sets:P2},{ex:"incline",sets:P2},{ex:"fly",sets:P2},
                {ex:"concurl",sets:P2},{ex:"hammercurl",sets:P2}]},
-      B:{focus:"Back & Abs",note:"Chins and rows hit biceps ~24h after A. The days-since-trained chips surface this.",
-         list:[{ex:"pullover",sets:P2},{ex:"pulldown",sets:P2},{ex:"row",sets:P2},
-               {ex:"bbrow",sets:P2},{ex:"chins",sets:P2},
+      B:{focus:"Back & Abs",
+         note:"One vertical pull and one horizontal pull per session, always one cable and one free-weight movement. B alternates: pulldown with barbell row, then chins with cable row. Either way these hit biceps ~24h after A.",
+         list:[{ex:"pullover",sets:P2},
+               {alt:["pulldown","chins"],sets:P2},
+               {alt:["bbrow","row"],sets:P2},
                {ex:"crunch",sets:P2},{ex:"hangleg",sets:P2}]},
       C:{focus:"Legs",note:"Alternates leg curl and SLDL each workout (sourced from Yates p.118).",
          list:[{ex:"legext",sets:P2},{alt:["legpress","hacksquat"],sets:P2},
@@ -719,12 +724,16 @@ function groupWindow(){ return restSpec().perCode || [18,24]; }
 function sessionWindow(){ return restSpec().interSession || [6,8]; }
 function winText(w){ return w[0] === w[1] ? w[0]+" days" : w[0]+"–"+w[1]+" days"; }
 
-/* How a gap of n days sits against a [lo,hi] window. */
+/* How a gap of n days sits against a [lo,hi] window.
+   Green means "this is where you want to be", the same as on the session
+   line. It used to mean "recently trained", which put a body part four days
+   into an eighteen-day window in the same colour as one that was actually
+   due, and read as ready when it was still recovering. */
 function windowState(n, w){
   if(n === null) return "none";
-  if(n > w[1]) return "over";
-  if(n >= w[0]) return "due";
-  return "ok";
+  if(n > w[1]) return "over";     // past the window
+  if(n >= w[0]) return "ready";   // inside it - this is the one to train
+  return "rest";                  // still recovering
 }
 function lastSessionDate(){
   var mine = S.sessions.filter(function(s){ return s.sets.length && s.instance === S.active; });
@@ -947,14 +956,16 @@ function viewToday(){
          + '<div class="d">'+(n === null ? "&mdash;" : n+"d")+'</div></div>';
   }).join("");
 
-  /* Session clock: how long since the last workout of any code. Unlike the
-     body-part chips, being inside this window is the good state. */
+  /* Session clock: how long since the last workout of any code. Same reading
+     as the chips - inside the window is the good state - just a different
+     window, so both go through windowState. */
   var lastAny = lastSessionDate();
   var gap = lastAny ? daysBetween(lastAny, today()) : null;
+  var gs = windowState(gap, sw);
   var due, dueCls = "";
   if(gap === null) due = "First workout of this program";
-  else if(gap < sw[0]){ due = "Rested "+gap+"d &middot; next due in "+(sw[0]-gap)+"d"; }
-  else if(gap <= sw[1]){ due = "Rested "+gap+"d &middot; inside the "+winText(sw)+" window"; dueCls = "ready"; }
+  else if(gs === "rest") due = "Rested "+gap+"d &middot; next due in "+(sw[0]-gap)+"d";
+  else if(gs === "ready"){ due = "Rested "+gap+"d &middot; inside the "+winText(sw)+" window"; dueCls = "ready"; }
   else { due = "Rested "+gap+"d &middot; past the "+winText(sw)+" window"; dueCls = "late"; }
 
   return '<div class="seg-h">Today I am doing</div>'
