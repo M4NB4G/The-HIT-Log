@@ -442,6 +442,10 @@ const LEGACY_BASELINES = {
      YC = Yates two-heavy-set, calf (12-20)
      P2 = Perez two-heavy-set (8-12 fixed)
    ============================================================ */
+/* Yates and Perez: BOTH sets go to failure. The second is not a lighter
+   "easier" set - it is a second all-out effort at 90% of the first. The roles
+   only say which set anchors progression: the top set does, and the back-off
+   follows its load, so the back-off never earns a weight jump on its own. */
 var Y2 = [{role:"top"},{role:"working",progression:"follow",loadFactor:0.9}];
 var YL = [{role:"top",rrAlt:["8-10","15-20"]},{role:"working",progression:"follow",loadFactor:0.9,rrAlt:["8-10","15-20"]}];
 var YC = [{role:"top",rr:"12-20"},{role:"working",progression:"follow",loadFactor:0.9,rr:"12-20"}];
@@ -531,7 +535,7 @@ const TEMPLATES = {
   yates_bng:{
     name:"Yates Blood & Guts",
     blurb:"Yates' own split as he set it out in 1992, following his written recommendations for movements, rep ranges and set counts. Three training days on a rolling cycle with rest days between.",
-    structure:"Warm-ups (not logged), then a top set to failure and a back-off set at 90% of that weight.",
+    structure:"Warm-ups (not logged), then two working sets, both taken to failure. The second is at 90% of the first.",
     source:"Dorian Yates, Blood and Guts (1992). Split p.37, movements p.114, counts p.32, reps p.49. Original day numbering was 1, 2 and 4 — day 3 is a rest day.",
     adapted:true, rotation:["A","B","C"],
     rest:{interSession:[1,2],perCode:[5,7],primary:"perCode"},
@@ -560,7 +564,7 @@ const TEMPLATES = {
   yates_natural:{
     name:"Yates Blood & Guts — Extended Recovery",
     blurb:"The same 1992 split and movements, run on a longer rest cycle with the beyond-failure techniques used sparingly rather than as standard.",
-    structure:"Warm-ups (not logged), then a top set to failure and a back-off set at 90% of that weight.",
+    structure:"Warm-ups (not logged), then two working sets, both taken to failure. The second is at 90% of the first.",
     source:"Adapted from Yates, Blood and Guts (1992): his split and movements, with a stretched rest cycle and beyond-failure work held in reserve.",
     adapted:true, rotation:["A","B","C"],
     rest:{interSession:[1,3],perCode:[7,9],primary:"perCode"},
@@ -588,7 +592,7 @@ const TEMPLATES = {
   perez:{
     name:"Perez 4-Workout",
     blurb:"Four workouts inside a week, so every body part comes around every seven days.",
-    structure:"Two heavy sets per exercise at 8–12 reps: a top set to failure, then a back-off set at 90% of that weight.",
+    structure:"Two heavy sets per exercise at 8–12 reps, both taken to failure. The second is at 90% of the first.",
     source:"Split and schedule per Perez. Movement selection seeded from Yates, Blood and Guts (1992) p.114 — edit to taste.",
     adapted:true, rotation:["A","B","C","D"],
     rest:{interSession:[1,2],perCode:[7,7],primary:"perCode"},
@@ -859,7 +863,7 @@ function setText(e, reps, weight, extra){
    Derived from the sets themselves so it cannot drift from the data. */
 const TPL_GROUPS = [
   {key:"single", label:"One all-out set to failure"},
-  {key:"double", label:"Two heavy sets, top set to failure"},
+  {key:"double", label:"Two heavy sets, both to failure"},
   {key:"submax", label:"Break-in &middot; not taken to failure"}
 ];
 function templateGroup(t){
@@ -1188,8 +1192,17 @@ function card(d, id, i){
   var sameLastPR = t && t.last && t.pr && t.last.reps === t.pr.reps && t.last.weight === t.pr.weight && t.last.date === t.pr.date;
 
   var cap, capCls = "";
+  var pct = spec && spec.loadFactor ? Math.round(spec.loadFactor * 100) : null;
   if(plain){
     cap = "Stop at "+lo+". This set is meant to feel comfortable - going to failure here works against you.";
+  }
+  /* A back-off set is taken to failure too, but its load is derived from the
+     top set, so it never earns a weight jump of its own. Without this branch
+     it fell through to "top of the range" and promised a bump on 90% of the
+     working weight - a number that will never be used. */
+  else if(st.role === "working"){
+    cap = "Also to failure"+(pct ? ", at "+pct+"% of your top set" : "")
+        + ". The load follows set 1, so this set does not move the target.";
   }
   else if(!t.pr){ cap = "No history - this set becomes the baseline."; }
   else if(t.bwEx){ cap = "Bodyweight exercise - add a load only if you use one."; }
@@ -1243,8 +1256,13 @@ function card(d, id, i){
     /* Prescription, not a target. A rep track would invite pushing past it,
        and with a single-value range it cannot render meaningfully anyway. */
     + (!plain
-        ? '<div class="targline">Target: '+(st.role === "working" ? setText(e, reps, st.weight)+' (follow)'
-            : t.weight === null ? (t.bwEx ? t.reps+' reps' : 'your call') : setText(e, t.reps, t.weight))+'</div>'
+        ? (st.role === "working"
+            /* Weight is prescribed, reps are not - you take it as far as the
+               lighter load allows, which is the whole point of the set. */
+            ? '<div class="targline">'+st.weight+suffix(e)
+              +(pct ? ' &middot; '+pct+'% of set 1' : '')+' &middot; to failure</div>'
+            : '<div class="targline">Target: '
+              +(t.weight === null ? (t.bwEx ? t.reps+' reps' : 'your call') : setText(e, t.reps, t.weight))+'</div>')
           + '<div class="track'+(atTop ? ' hit' : '')+'">'
           + '<div class="fill" style="width:'+pctOf(reps)+'%"></div>'
           + '<div class="tgt" style="left:'+pctOf(t.reps)+'%" data-l="'+t.reps+'"></div>'
