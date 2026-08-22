@@ -204,12 +204,14 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .panel h3{margin:0 0 5px;font-size:15px;font-weight:500;color:var(--txt)}
 .panel p{margin:0 0 14px;font-size:13px;color:var(--txt-2);line-height:1.55}
 
-/* Instance switcher. Was reusing .seg, which is built for short codes and
-   truncates full program names to unreadable stubs. These wrap instead. */
-.inst{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
-.inst button{flex:1 1 auto;min-height:42px;padding:8px 16px;border-radius:100px;font-size:13px;font-weight:500;
-  border:1px solid var(--outline);background:var(--surface);color:var(--txt-2);box-shadow:var(--e1)}
-.inst button[aria-pressed="true"]{background:var(--accent-c);color:var(--accent-on);border-color:transparent}
+/* Instance switcher. A select, not a row of pills - the number of programs is
+   unbounded and a wall of them buries the program you came to look at. */
+.isel{width:100%;min-height:46px;margin-bottom:10px;padding:0 36px 0 14px;
+  border:1px solid var(--outline);border-radius:12px;background:var(--surface-2);
+  color:var(--txt);font-size:14px;font-weight:500;
+  -webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235f6368'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center}
 
 /* Quiet source/attribution note. Deliberately not .bump — that is the amber
    PR alert and shouting a citation in warning colours reads as an error. */
@@ -1120,13 +1122,31 @@ function viewData(){
   var tmpl = TEMPLATES[inst.source];
   var nSets = S.sessions.reduce(function(a,s){ return a + s.sets.length; }, 0);
 
-  /* Instance switcher (if multiple instances) */
+  /* Instance switcher. A select rather than a row of pills: the count is
+     unbounded, and twenty pills is a wall you have to scroll past to reach
+     the program itself. */
   var instKeys = Object.keys(S.instances);
-  var instPicker = instKeys.length > 1
-    ? '<div class="inst">' + instKeys.map(function(k){
-        return '<button aria-pressed="'+(k === S.active)+'" onclick="switchInstance(\''+k+'\')">'
-             + esc(S.instances[k].name)+'</button>';
-      }).join("") + '</div>' : '';
+  var spares = instKeys.filter(function(k){ return k !== S.active && isSpare(k); }).length;
+  var instPicker = "";
+  if(instKeys.length > 1){
+    instPicker = '<div class="panel"><h3>Program</h3>'
+      + '<select class="isel" aria-label="Active program" onchange="switchInstance(this.value)">'
+      + instKeys.map(function(k){
+          var n = sessionsOf(k);
+          return '<option value="'+k+'"'+(k === S.active ? ' selected' : '')+'>'
+               + esc(S.instances[k].name)
+               + (n ? ' — ' + n + ' session' + (n === 1 ? '' : 's') : S.instances[k].edited ? ' — edited' : '')
+               + '</option>'; }).join("")
+      + '</select>'
+      + (spares
+          ? '<button class="btn-o" onclick="pruneInstances()">Clear ' + spares
+            + ' unused program' + (spares === 1 ? '' : 's') + '</button>'
+          : '')
+      + (isSpare(S.active)
+          ? '<button class="btn-o danger" onclick="removeInstance(\''+S.active+'\')">Remove this program</button>'
+          : '')
+      + '</div>';
+  }
 
   /* How this program runs: both rest clocks plus set structure. */
   function row(k, v){ return '<div class="r"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>'; }
@@ -1329,10 +1349,33 @@ function resetProgram(){
   inst.edited = false;
   save(); toast("Program reset"); render();
 }
+/** Logged sessions belonging to one instance. */
+function sessionsOf(id){
+  return S.sessions.filter(function(s){ return s.instance === id; }).length;
+}
+/** An instance nothing would be lost by removing: no history, no edits. */
+function isSpare(id){
+  return !S.instances[id].edited && !sessionsOf(id);
+}
+
 function createInstance(templateId){
   var t = TEMPLATES[templateId]; if(!t) return;
   if(S.draft){ toast("Finish your session first"); return; }
-  var id = "i" + Date.now().toString(36);
+  /* Tapping a card to read it used to mint a permanent copy every time, which
+     is how the switcher ended up with twenty. Reading is now free (the card
+     carries the blurb), and a tap that would duplicate either lands on the
+     untouched copy already sitting there or asks first. */
+  if(S.instances[S.active].source === templateId){ toast("Already on "+t.name); return; }
+  var mine = Object.keys(S.instances).filter(function(k){ return S.instances[k].source === templateId; });
+  var spare = mine.filter(isSpare)[0];
+  if(spare){ switchInstance(spare); toast("Switched to "+t.name); return; }
+  if(mine.length && !confirm("You already have "+t.name+". Start a second copy of it?")) return;
+
+  /* Two creates inside the same millisecond used to collide on this key, and
+     the second silently replaced the first. Suffix until it is free. */
+  var id, seq = 0;
+  do { id = "i" + Date.now().toString(36) + (seq ? "-" + seq.toString(36) : ""); seq++; }
+  while(S.instances[id]);
   S.instances[id] = {source:templateId, name:t.name, edited:false,
     rotation:t.rotation.slice(), rest:JSON.parse(JSON.stringify(t.rest)),
     program:JSON.parse(JSON.stringify(t.days))};
@@ -1344,6 +1387,33 @@ function switchInstance(id){
   if(S.draft){ toast("Finish your session first"); return; }
   S.active = id; pick = null; editWO = null;
   save(); render();
+}
+/* Removing a program never removes training history: an instance holding
+   logged sessions is refused rather than cascading the delete, because
+   orphaned sessions would still surface in History under a code that no
+   longer resolves. */
+function removeInstance(id){
+  if(!S.instances[id]) return;
+  if(S.draft){ toast("Finish your session first"); return; }
+  if(Object.keys(S.instances).length < 2){ toast("That is your only program"); return; }
+  var n = sessionsOf(id);
+  if(n){ toast(n+" logged session"+(n === 1 ? "" : "s")+" here - export before erasing"); return; }
+  if(!confirm("Remove " + S.instances[id].name + "? It has no logged sessions.")) return;
+  delete S.instances[id];
+  if(S.active === id) S.active = Object.keys(S.instances)[0];
+  pick = null; editWO = null;
+  save(); toast("Removed"); render();
+}
+/** Bulk cleanup for a switcher full of programs that were only ever opened. */
+function pruneInstances(){
+  if(S.draft){ toast("Finish your session first"); return; }
+  var dead = Object.keys(S.instances).filter(function(k){ return k !== S.active && isSpare(k); });
+  if(!dead.length){ toast("Nothing to clear"); return; }
+  if(!confirm("Remove " + dead.length + " program" + (dead.length === 1 ? "" : "s")
+    + " with no logged sessions and no edits?\n\nYour current program is kept, and so is anything you have trained or changed.")) return;
+  dead.forEach(function(k){ delete S.instances[k]; });
+  pick = null; editWO = null;
+  save(); toast("Removed " + dead.length); render();
 }
 function exportJSON(){
   var A = allEx(), lib = {};

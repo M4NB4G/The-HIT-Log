@@ -10,7 +10,7 @@
 
    Bump CACHE whenever you change the shell; the activate handler drops old ones.
 */
-const CACHE = "hitlog-v3";
+const CACHE = "hitlog-v4";
 const SHELL = [
   "./",
   "./index.html",
