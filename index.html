@@ -135,6 +135,19 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .track .lo{left:11px} .track .hi{right:11px}
 .track .val{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-family:var(--mono);
   font-size:13px;font-weight:600;color:var(--txt)}
+/* Past-failure count. Appears only once a technique is picked, and reads as
+   an addendum to the reps above rather than a second rep field. */
+.ext{margin-top:10px;padding:11px 13px;border-radius:12px;background:var(--amber-c)}
+.ext .lbl{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--amber-on)}
+.ext .ctl{display:flex;align-items:center;gap:8px;margin-top:7px}
+.ext .ctl button{width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:var(--surface);
+  color:var(--amber-on);font-size:19px;line-height:1;box-shadow:var(--e1)}
+.ext .ctl input{width:56px;flex:0 0 56px;background:transparent;border:none;text-align:center;
+  font-family:var(--mono);font-size:22px;font-weight:600;color:var(--amber-on);padding:0}
+.ext .ctl input:focus{outline:none}
+.ext .u{font-size:12px;color:var(--amber-on);opacity:.85}
+.ext .hint{font-size:11px;line-height:1.45;color:var(--amber-on);opacity:.8;margin-top:7px}
+
 .cap{font-size:12px;color:var(--txt-2);margin-top:8px;min-height:32px;line-height:1.4}
 .cap.good{color:var(--green-on)} .cap.top{color:var(--amber-on);font-weight:500}
 
@@ -317,14 +330,14 @@ var WPALETTE = [
   {a:"var(--red)",   c:"var(--red-c)",   o:"var(--red-on)"},
   {a:"var(--amber)", c:"var(--amber-c)", o:"var(--amber-on)"}
 ];
-function wtheme(code){
-  var rot = rotation();
+function wtheme(code, instId){
+  var rot = (instId && S.instances[instId] && S.instances[instId].rotation) || rotation();
   var idx = rot.indexOf(code);
   if(idx < 0) idx = 0;
   return WPALETTE[idx % WPALETTE.length];
 }
-function wlStyle(code){
-  var t = wtheme(code);
+function wlStyle(code, instId){
+  var t = wtheme(code, instId);
   return 'background:'+t.c+';color:'+t.a;
 }
 function setAccent(code){
@@ -416,7 +429,7 @@ var P2 = [{role:"top",rr:"8-12"},{role:"working",progression:"follow",loadFactor
 const TEMPLATES = {
   persyn:{
     name:"Persyn 3-Workout",
-    blurb:"Mentzer's four-workout cycle compressed to three, so nothing waits three weeks to come around again.",
+    blurb:"The Mentzer Ideal Routine, compressed from four workouts to three so nothing waits four weeks to come around again. Same principles, same one-set-to-failure structure — only the split is shortened.",
     structure:"One all-out set per exercise, taken to failure. Double progression on reps, then weight.",
     source:"Adapted from Mentzer, High-Intensity Training the Mike Mentzer Way (2003), compressed from four workouts to three.",
     adapted:true, rotation:["A","B","C"],
@@ -429,7 +442,7 @@ const TEMPLATES = {
   },
   mentzer_ideal:{
     name:"Mentzer Ideal Routine",
-    blurb:"Mentzer's published four-workout cycle. Very low volume, very long rest, pre-exhaust pairs run back to back.",
+    blurb:"Mentzer's final routine, aimed at maximum growth stimulation from the smallest possible draw on the body's recuperative resources. Pre-exhaust pairs run back to back.",
     structure:"One all-out set per exercise. Paired exercises run with no rest between them.",
     source:"Little & Mentzer, High-Intensity Training the Mike Mentzer Way (2003).",
     adapted:false, rotation:["A","B","C","D"],
@@ -461,8 +474,8 @@ const TEMPLATES = {
   },
   mentzer_consolidation:{
     name:"Mentzer Consolidation",
-    blurb:"Mentzer's stripped-back cycle for stalled trainees: three compound exercises per workout, nothing else.",
-    structure:"One all-out set per exercise, three exercises per workout. Start at 5–6 days rest and stretch it as you get stronger.",
+    blurb:"For the advanced lifter training hard enough that a full routine outruns their recovery. Stripped to three compound exercises per workout, with the rest between sessions stretched to match.",
+    structure:"One all-out set per exercise, three exercises per workout. Start at 5–6 days rest and extend it as the sessions get heavier.",
     source:"Little & Mentzer, High-Intensity Training the Mike Mentzer Way (2003). Start at 5–6 days rest, increase over time.",
     adapted:false, rotation:["A","B"],
     rest:{interSession:[5,6],perCode:[10,12],primary:"interSession"},
@@ -479,7 +492,7 @@ const TEMPLATES = {
   },
   yates_bng:{
     name:"Yates Blood & Guts",
-    blurb:"Yates' three training days on a rolling cycle with rest days between. High frequency, high volume, short recovery.",
+    blurb:"Yates' own split as he set it out in 1993, following his written recommendations for movements, rep ranges and set counts. Three training days on a rolling cycle with rest days between.",
     structure:"Warm-ups (not logged), then a top set to failure and a back-off set at 90% of that weight.",
     source:"Dorian Yates, Blood and Guts (1993). Split p.37, movements p.114, counts p.32, reps p.49. Original day numbering was 1, 2 and 4 — day 3 is a rest day.",
     adapted:true, rotation:["A","B","C"],
@@ -505,10 +518,10 @@ const TEMPLATES = {
     }
   },
   yates_natural:{
-    name:"Yates Natural Adaptation",
-    blurb:"Yates' split and movements on a longer rest cycle, without the beyond-failure work. Not Yates-authored.",
+    name:"Yates Blood & Guts — Extended Recovery",
+    blurb:"The same 1993 split and movements, run on a longer rest cycle with the beyond-failure techniques used sparingly rather than as standard.",
     structure:"Warm-ups (not logged), then a top set to failure and a back-off set at 90% of that weight.",
-    source:"Adapted from Yates, Blood and Guts (1993). Stretched rest cycle, limited beyond-failure work. Not Yates-authored.",
+    source:"Adapted from Yates, Blood and Guts (1993): his split and movements, with a stretched rest cycle and beyond-failure work held in reserve.",
     adapted:true, rotation:["A","B","C"],
     rest:{interSession:[1,3],perCode:[7,9],primary:"perCode"},
     days:{
@@ -652,6 +665,13 @@ function load(){
     d.instances[ik].rotation = tmpl ? tmpl.rotation.slice() : ["A","B","C"];
     d.instances[ik].rest = tmpl ? JSON.parse(JSON.stringify(tmpl.rest)) : {interSession:[6,8],perCode:[18,24],primary:"perCode"};
   }}
+  /* Instances copy their name at creation, so renaming a template would leave
+     older copies showing the old label. Nothing lets you rename an instance
+     by hand, so the template is always the authority. */
+  for(var nk in d.instances){
+    var nt = TEMPLATES[d.instances[nk].source];
+    if(nt && d.instances[nk].name !== nt.name) d.instances[nk].name = nt.name;
+  }
   /* Rename any pre-letter workout codes (W1..W4, D1/D2/D4) to A, B, C, D.
      Positional, so it holds for any legacy code without a lookup table. */
   var relettered = false;
@@ -775,19 +795,33 @@ function bumpWeight(w, e){
   var raw = w * (e.pct == null ? 5 : e.pct) / 100;
   return w + Math.max(e.step, Math.round(raw / e.step) * e.step);
 }
-/** Beyond-failure / set-completion enum.  Only "clean" feeds PRs and progression. */
+/** How the set ended.
+    Two different facts used to be crammed into this one enum: whether the set
+    REACHED failure, and what was done AFTER it. Only "clean" counted, so
+    8 clean reps followed by 4 partials had to be logged either as clean
+    (losing the partials) or as partials (silently throwing away the PR and
+    stalling progression). The reps recorded are always the clean reps; the
+    six beyond-failure techniques all happen past that point and so leave the
+    PR intact. Only "short" - stopped before failure - disqualifies a set,
+    because double progression assumes the set was taken to failure. */
 const ENDED_WITH = [
   {v:"clean",     l:"Clean"},
-  {v:"forced",    l:"Forced"},
-  {v:"negatives", l:"Negatives"},
-  {v:"restpause", l:"Rest-pause"},
-  {v:"drop",      l:"Drop set"},
-  {v:"partials",  l:"Partials"},
-  {v:"static",    l:"Static"},
+  {v:"forced",    l:"Forced",     ext:true, unit:"forced reps"},
+  {v:"negatives", l:"Negatives",  ext:true, unit:"negatives"},
+  {v:"restpause", l:"Rest-pause", ext:true, unit:"rest-pause reps"},
+  {v:"drop",      l:"Drop set",   ext:true, unit:"drop reps"},
+  {v:"partials",  l:"Partials",   ext:true, unit:"partials"},
+  {v:"static",    l:"Static",     ext:true, unit:"static holds"},
   {v:"short",     l:"Short"}
 ];
+function endedWithDef(v){
+  return ENDED_WITH.filter(function(x){ return x.v === v; })[0] || ENDED_WITH[0];
+}
+/** True when a technique was used past failure, so an extra count applies. */
+function isExtended(v){ return !!endedWithDef(v).ext; }
+/** Whether this set's reps count toward PRs and progression. */
 function endedClean(set){
-  if(set.endedWith) return set.endedWith === "clean";
+  if(set.endedWith) return set.endedWith !== "short";
   return set.failure === "Yes" || !set.failure;
 }
 /** PR = most reps at the heaviest weight achieved. Weight takes priority. */
@@ -821,7 +855,13 @@ function lastGroupDate(g){
   S.sessions.forEach(function(s){ s.sets.forEach(function(x){ var e = exOf(x.ex); if(e && e.g === g && (!d || s.date > d)) d = s.date; }); });
   return d;
 }
-function focusOf(c){ return prog()[c].focus; }
+/* Focus label for a workout code. History lists sessions from every program,
+   and a code like D does not exist in a two-workout rotation, so resolve
+   against the session's own instance and degrade to "" rather than throwing. */
+function focusOf(c, instId){
+  var p = instId && S.instances[instId] ? S.instances[instId].program : prog();
+  return (p && p[c] && p[c].focus) || "";
+}
 function nextWorkout(){
   var rot = rotation();
   var done = S.sessions.filter(function(s){ return s.sets.length && s.instance === S.active; });
@@ -873,7 +913,7 @@ function entryFor(id, force){
       reps = activeRange(id, setNum)[0];
     }
     entry[id] = {weight: weight === null ? "" : weight, reps:reps, endedWith:"clean", note:"",
-                 setNum:setNum, role:setDef.role || "top"};
+                 extra:0, setNum:setNum, role:setDef.role || "top"};
   }
   return entry[id];
 }
@@ -965,9 +1005,10 @@ function card(d, id, i){
     /* The TOP badge judges the top set, so use the top set's range - setNum
        has already run past the end by the time every set is logged. */
     var topHi = activeRange(id, 0)[1];
+    var ext = function(s){ return s.extra ? '+'+s.extra : ''; };
     var summ = logged.length > 1
-      ? logged.map(function(s){ return s.reps+'&times;'+s.weight; }).join(' / ')+suffix(e)
-      : topSet.reps+' &times; '+topSet.weight+suffix(e)+(sew !== "clean" ? ' · '+sew : '');
+      ? logged.map(function(s){ return s.reps+ext(s)+'&times;'+s.weight; }).join(' / ')+suffix(e)
+      : topSet.reps+ext(topSet)+' &times; '+topSet.weight+suffix(e)+(sew !== "clean" ? ' · '+sew : '');
     return '<article class="card done"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">&#10003;</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
       + '<span class="r">'+summ+'</span></span>'
@@ -1021,7 +1062,9 @@ function card(d, id, i){
   if(logged.length > 0){
     loggedHtml = logged.map(function(s,si){
       return '<div class="lastline"><span>Set '+(si+1)+': <b>'+s.reps+' &times; '+s.weight+suffix(e)+'</b>'
-        +(s.endedWith && s.endedWith !== "clean" ? ' ('+s.endedWith+')' : '')+'</span><span>&#10003;</span></div>';
+        +(s.extra ? ' <b>+'+s.extra+'</b> '+esc(endedWithDef(s.endedWith).unit)
+          : s.endedWith && s.endedWith !== "clean" ? ' ('+s.endedWith+')' : '')
+        +'</span><span>&#10003;</span></div>';
     }).join("");
   }
   var setLabel = needed > 1 ? '<div class="targline" style="font-size:13px;color:var(--txt-2)">Set '+(logged.length+1)+' of '+needed
@@ -1055,6 +1098,17 @@ function card(d, id, i){
     + '<div class="fail-row">' + ENDED_WITH.map(function(ew){
         return '<button aria-pressed="'+(st.endedWith === ew.v)+'" onclick="setv(\''+id+'\',\'endedWith\',\''+ew.v+'\')">'
              + ew.l+'</button>'; }).join("") + '</div>'
+    /* Extra count, only once a past-failure technique is chosen. The reps
+       above stay the clean reps and keep driving progression. */
+    + (isExtended(st.endedWith)
+      ? '<div class="ext"><div class="lbl">Past failure</div><div class="ctl">'
+        + '<button onclick="bump(\''+id+'\',\'extra\',-1)" aria-label="fewer">&minus;</button>'
+        + '<input type="number" inputmode="numeric" value="'+(st.extra || 0)+'" oninput="setv(\''+id+'\',\'extra\',this.value)">'
+        + '<button onclick="bump(\''+id+'\',\'extra\',1)" aria-label="more">+</button>'
+        + '<span class="u">'+esc(endedWithDef(st.endedWith).unit)+'</span></div>'
+        + '<div class="hint">'+st.reps+' clean to failure, then '+(st.extra || 0)+'. '
+        + 'The '+st.reps+' is what sets your PR and moves the target.</div></div>'
+      : '')
     + '<textarea class="note-in" rows="2" placeholder="'+(e.warn ? esc(e.warn) : "Notes")+'" oninput="setv(\''+id+'\',\'note\',this.value)">'+esc(st.note)+'</textarea>'
     + '<button class="btn-log'+(atTop && st.role !== "working" ? ' top' : '')+'" onclick="commit(\''+id+'\')">'
     +(needed > 1 ? 'Log set '+(logged.length+1)+' of '+needed : atTop ? "Log - top of range" : "Log set")+'</button>'
@@ -1069,16 +1123,25 @@ function viewHistory(){
   if(!S.sessions.length) return empty("&#8801;", "No sessions yet.<br>Your first workout shows up here.");
   var rev = S.sessions.slice().reverse();
   return rev.map(function(s, i){
-    var prev = rev.slice(i+1).filter(function(x){ return x.workout === s.workout; })[0];
+    /* Gap compares like with like: the same code inside the same program.
+       Workout A of one program and workout A of another are not the same
+       session recurring. */
+    var prev = rev.slice(i+1).filter(function(x){
+      return x.workout === s.workout && x.instance === s.instance; })[0];
     var gap = prev ? daysBetween(prev.date, s.date) : null;
+    var focus = focusOf(s.workout, s.instance);
+    var from = s.instance && s.instance !== S.active && S.instances[s.instance]
+      ? S.instances[s.instance].name : null;
     return '<article class="sess"><button class="sh" onclick="this.parentNode.querySelector(\'.body\').classList.toggle(\'hide\')">'
-      + '<span class="wl" style="'+wlStyle(s.workout)+'">'+s.workout+'</span><span class="sd"><span class="dt">'+fmtDate(s.date)+'</span>'
-      + '<span class="mm">'+esc(focusOf(s.workout))+' &middot; '+s.sets.length+' sets'+(gap !== null ? ' &middot; '+gap+'d gap' : '')+'</span></span></button>'
+      + '<span class="wl" style="'+wlStyle(s.workout, s.instance)+'">'+s.workout+'</span><span class="sd"><span class="dt">'+fmtDate(s.date)+'</span>'
+      + '<span class="mm">'+(focus ? esc(focus)+' &middot; ' : '')+s.sets.length+' sets'
+      + (gap !== null ? ' &middot; '+gap+'d gap' : '')
+      + (from ? ' &middot; '+esc(from) : '')+'</span></span></button>'
       + '<div class="body'+(i === 0 ? '' : ' hide')+'">'
       + s.sets.map(function(x){ var e = exOf(x.ex);
           var ew = x.endedWith || (x.failure === "Yes" ? "clean" : "short");
           return '<div class="set"><span class="sn">'+esc(e ? e.n : x.ex)+'</span>'
-            + '<span class="sv">'+x.reps+' &times; '+x.weight+(e ? suffix(e) : '')+'</span>'
+            + '<span class="sv">'+x.reps+(x.extra ? '+'+x.extra : '')+' &times; '+x.weight+(e ? suffix(e) : '')+'</span>'
             + (ew !== "clean" ? '<span class="se">'+esc(ew)+'</span>' : '')+'</div>'
             + (x.note ? '<div class="set-note">'+esc(x.note)+'</div>' : ''); }).join("")
       + '</div></article>';
@@ -1248,8 +1311,11 @@ function toggle(id){ open_ = open_ === id ? null : id; if(open_) entryFor(open_,
 function setv(id,k,v){
   var st = entryFor(id);
   st[k] = (k === "note" || k === "endedWith") ? v : (v === "" ? "" : Number(v));
+  /* Switching away from a past-failure technique drops any count entered for
+     it, so a stale number cannot ride along on a set logged as clean. */
+  if(k === "endedWith" && !isExtended(v)) st.extra = 0;
   if(k === "note") return;                       // state only, no re-render
-  if(k === "weight" || k === "reps") renderKeepFocus(k); else render();
+  if(k === "weight" || k === "reps" || k === "extra") renderKeepFocus(k); else render();
 }
 function bump(id,k,delta){
   var st = entryFor(id), min = k === "reps" ? 1 : 0;
@@ -1263,9 +1329,12 @@ function commit(id){
   var hi = activeRange(id, st.setNum || 0)[1];
   var ew = st.endedWith;
   var role = st.role || "top";
-  S.draft.sets.push({ex:id, reps:reps, weight:weight, endedWith:ew, note:st.note || "",
-                     e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult, t:new Date().toISOString(),
-                     role:role, setNum:st.setNum || 0});
+  var extra = isExtended(ew) ? Math.max(0, Number(st.extra) || 0) : 0;
+  var set = {ex:id, reps:reps, weight:weight, endedWith:ew, note:st.note || "",
+             e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult, t:new Date().toISOString(),
+             role:role, setNum:st.setNum || 0};
+  if(extra) set.extra = extra;
+  S.draft.sets.push(set);
   save();
   var needed = slotSetsNeeded(S.draft, id);
   var logged = slotsLogged(S.draft, id);
@@ -1274,10 +1343,16 @@ function commit(id){
     toast("Set "+logged+" of "+needed+" logged");
     render(); return;
   }
-  if(ew !== "clean" || role === "working"){
-    toast("Logged "+reps+" × "+weight+(ew !== "clean" ? " ("+ew+" — won’t move target)" : ""));
+  /* Past-failure work no longer suppresses the target: the reps logged are the
+     clean ones and they earned whatever they earned. Only "short" holds back. */
+  var tail = extra ? " +"+extra+" "+endedWithDef(ew).unit : "";
+  if(role === "working"){
+    toast("Logged "+reps+" x "+weight+tail);
+  } else if(ew === "short"){
+    toast("Logged "+reps+" x "+weight+" (short of failure - target unchanged)");
   } else {
-    toast(reps >= hi ? "Top of range - "+bumpWeight(weight, e)+" lb next time" : "Logged - "+reps+" x "+weight, reps >= hi);
+    toast(reps >= hi ? "Top of range"+tail+" - "+bumpWeight(weight, e)+" lb next time"
+                     : "Logged - "+reps+" x "+weight+tail, reps >= hi);
   }
   delete entry[id]; open_ = null; render();
 }
@@ -1492,8 +1567,12 @@ function render(){
 function renderKeepFocus(k){
   var ae = document.activeElement, pos = ae && ae.selectionStart;
   render();
-  var ins = document.querySelectorAll(".card.open .st input");
-  var el = k === "weight" ? ins[0] : ins[1];
+  var el;
+  if(k === "extra") el = document.querySelector(".card.open .ext input");
+  else {
+    var ins = document.querySelectorAll(".card.open .st input");
+    el = k === "weight" ? ins[0] : ins[1];
+  }
   if(el){ el.focus(); try{ el.setSelectionRange(pos, pos); }catch(e){} }
 }
 /* ---------------- PWA: install prompt + service worker ---------------- */
