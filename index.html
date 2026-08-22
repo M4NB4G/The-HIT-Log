@@ -256,6 +256,10 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .tpl .n{font-size:14px;font-weight:500}
 .tpl .m{display:block;font-family:var(--mono);font-size:11px;color:var(--txt-3);margin-top:3px}
 .tpl .b{display:block;font-size:12px;color:var(--txt-2);line-height:1.5;margin-top:6px}
+/* Group heading in the template picker. */
+.tplg{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--txt-3);margin:18px 0 8px;padding-top:14px;border-top:1px solid var(--outline-soft)}
+.tpl + .tplg{margin-top:16px}
 .tpl .nx{display:block;font-size:11px;color:var(--blue);margin-top:6px}
 .tpl.cur{border-color:var(--accent);background:var(--accent-c)}
 .tpl.cur .n{color:var(--accent-on)} .tpl.cur .m,.tpl.cur .b{color:var(--accent-on);opacity:.85}
@@ -461,39 +465,6 @@ function breakInDay(sets){
 }
 
 const TEMPLATES = {
-  mentzer_breakin:{
-    name:"Mentzer Break-In",
-    blurb:"Five consecutive days of one easy set per exercise, for a beginner or anyone coming back from a layoff. Nothing here is taken to failure and no weight goes up — that is the point, not a shortcut.",
-    structure:"One set of 10 per exercise, light enough to finish without extreme effort. No progression: the load stays where you put it.",
-    source:"Mentzer & Little, High-Intensity Training the Mike Mentzer Way (2003), p.71. Framed on Selye's general adaptation syndrome — get through the alarm stage before asking for adaptation.",
-    adapted:false, rotation:["A"],
-    rest:{interSession:[1,1],perCode:[1,1],primary:"interSession"},
-    successor:"mentzer_breakin_2",
-    days:{A:breakInDay(B1)}
-  },
-  mentzer_breakin_2:{
-    name:"Mentzer Break-In, Second Phase",
-    blurb:"For when five days of break-in still leaves you sore. Rest the weekend, then three days a week, two sets per exercise. Still nothing to failure.",
-    structure:"Two sets of 10. The second is 10% heavier than the first and should still reach 10 with slightly more effort — not to failure.",
-    source:"Mentzer & Little, High-Intensity Training the Mike Mentzer Way (2003), p.71. Entered only if soreness persists; the book gives no fixed endpoint and the weekday framing is advisory.",
-    adapted:false, rotation:["A"],
-    rest:{interSession:[2,3],perCode:[2,3],primary:"interSession"},
-    successor:"mentzer_ideal",
-    days:{A:breakInDay(B2)}
-  },
-  persyn:{
-    name:"Persyn 3-Workout",
-    blurb:"The Mentzer Ideal Routine, compressed from four workouts to three so nothing waits four weeks to come around again. Same principles, same one-set-to-failure structure — only the split is shortened.",
-    structure:"One all-out set per exercise, taken to failure. Double progression on reps, then weight.",
-    source:"Adapted from Mentzer, High-Intensity Training the Mike Mentzer Way (2003), compressed from four workouts to three.",
-    adapted:true, rotation:["A","B","C"],
-    rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
-    days:{
-      A:{focus:"Chest & Back",list:["fly","incline","flat","pullover","pulldown","row","deadlift"]},
-      B:{focus:"Legs & Abs",list:["legext",{alt:["legpress","squat"]},"legcurl",{alt:["donkey","calf"]},"abs"]},
-      C:{focus:"Shoulders & Arms",list:["lateral","revfly","curl","bbcurl","pushdown","dips","facepull"]}
-    }
-  },
   mentzer_ideal:{
     name:"Mentzer Ideal Routine",
     blurb:"Mentzer's final routine, aimed at maximum growth stimulation from the smallest possible draw on the body's recuperative resources. Pre-exhaust pairs run back to back.",
@@ -524,6 +495,19 @@ const TEMPLATES = {
                {ex:"legpress",sets:[{role:"top",rr:"12-20"}]},
                {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]},
                {ex:"situp",sets:[{role:"top",rr:"12-20"}]}]}
+    }
+  },
+  persyn:{
+    name:"Persyn 3-Workout",
+    blurb:"The Mentzer Ideal Routine, compressed from four workouts to three so nothing waits four weeks to come around again. Same principles, same one-set-to-failure structure — only the split is shortened.",
+    structure:"One all-out set per exercise, taken to failure. Double progression on reps, then weight.",
+    source:"Adapted from Mentzer, High-Intensity Training the Mike Mentzer Way (2003), compressed from four workouts to three.",
+    adapted:true, rotation:["A","B","C"],
+    rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
+    days:{
+      A:{focus:"Chest & Back",list:["fly","incline","flat","pullover","pulldown","row","deadlift"]},
+      B:{focus:"Legs & Abs",list:["legext",{alt:["legpress","squat"]},"legcurl",{alt:["donkey","calf"]},"abs"]},
+      C:{focus:"Shoulders & Arms",list:["lateral","revfly","curl","bbcurl","pushdown","dips","facepull"]}
     }
   },
   mentzer_consolidation:{
@@ -627,6 +611,26 @@ const TEMPLATES = {
                {alt:["bentlat","revfly"],sets:P2},{ex:"shrug",sets:P2},
                {ex:"pushdown",sets:P2},{ex:"ezext",sets:P2}]}
     }
+  },
+  mentzer_breakin:{
+    name:"Mentzer Break-In",
+    blurb:"Five consecutive days of one easy set per exercise, for a beginner or anyone coming back from a layoff. Nothing here is taken to failure and no weight goes up — that is the point, not a shortcut.",
+    structure:"One set of 10 per exercise, light enough to finish without extreme effort. No progression: the load stays where you put it.",
+    source:"Mentzer & Little, High-Intensity Training the Mike Mentzer Way (2003), p.71. Framed on Selye's general adaptation syndrome — get through the alarm stage before asking for adaptation.",
+    adapted:false, rotation:["A"],
+    rest:{interSession:[1,1],perCode:[1,1],primary:"interSession"},
+    successor:"mentzer_breakin_2",
+    days:{A:breakInDay(B1)}
+  },
+  mentzer_breakin_2:{
+    name:"Mentzer Break-In, Second Phase",
+    blurb:"For when five days of break-in still leaves you sore. Rest the weekend, then three days a week, two sets per exercise. Still nothing to failure.",
+    structure:"Two sets of 10. The second is 10% heavier than the first and should still reach 10 with slightly more effort — not to failure.",
+    source:"Mentzer & Little, High-Intensity Training the Mike Mentzer Way (2003), p.71. Entered only if soreness persists; the book gives no fixed endpoint and the weekday framing is advisory.",
+    adapted:false, rotation:["A"],
+    rest:{interSession:[2,3],perCode:[2,3],primary:"interSession"},
+    successor:"mentzer_ideal",
+    days:{A:breakInDay(B2)}
   }
 };
 
@@ -848,6 +852,27 @@ function setText(e, reps, weight, extra){
   if(e && e.bw) return Number(weight) > 0 ? r + " &times; +" + weight + suffix(e) : r + " reps";
   return r + " &times; " + weight + (e ? suffix(e) : "");
 }
+/* Which shelf a template sits on in the picker. Grouped by set structure
+   because that is the decision you are actually making when you choose one,
+   and it separates the break-in protocols by what they are rather than by
+   their rest interval, which would file them next to Blood and Guts.
+   Derived from the sets themselves so it cannot drift from the data. */
+const TPL_GROUPS = [
+  {key:"single", label:"One all-out set to failure"},
+  {key:"double", label:"Two heavy sets, top set to failure"},
+  {key:"submax", label:"Break-in &middot; not taken to failure"}
+];
+function templateGroup(t){
+  var most = 1, submax = false;
+  for(var c in t.days) t.days[c].list.forEach(function(it){
+    var sets = (typeof it === "object" && it.sets) || null;
+    if(!sets) return;                                  // legacy slot: one failure set
+    if(sets.length > most) most = sets.length;
+    if(sets.some(function(s){ return s.scheme === "submax"; })) submax = true;
+  });
+  return submax ? "submax" : most > 1 ? "double" : "single";
+}
+
 /* A flat prescription like "10-10" is not a range; show it as "10". */
 function rrLabel(rr){ var p = String(rr).split("-"); return p[0] === p[1] ? p[0] : String(rr); }
 /* The spec for the set being entered right now, or null outside a session. */
@@ -1416,16 +1441,24 @@ function viewData(){
   }).join("");
 
   /* Template picker */
-  var tplHtml = Object.keys(TEMPLATES).map(function(tid){
-    var t = TEMPLATES[tid], cur = tid === inst.source;
-    var nxt = t.successor && TEMPLATES[t.successor];
+  function tplCard(tid, cur){
+    var t = TEMPLATES[tid], nxt = t.successor && TEMPLATES[t.successor];
     return '<button class="tpl'+(cur ? ' cur' : '')+'" onclick="createInstance(\''+tid+'\')">'
       + '<span class="n">'+esc(t.name)+(cur ? ' &middot; current' : '')+'</span>'
       + '<span class="m">'+t.rotation.join("/")+' &middot; '+winText(t.rest.interSession)+' apart &middot; '
       + (t.adapted ? 'adapted' : 'as published')+'</span>'
       + '<span class="b">'+esc(t.blurb)+'</span>'
       + (nxt ? '<span class="nx">Leads to '+esc(nxt.name)+'</span>' : '')+'</button>';
-  }).join("");
+  }
+  /* The program you are on sits at the top, then the rest by set structure.
+     It is omitted from its own group so it appears once, not twice. */
+  var tplHtml = (TEMPLATES[inst.source] ? tplCard(inst.source, true) : '')
+    + TPL_GROUPS.map(function(g){
+        var ids = Object.keys(TEMPLATES).filter(function(tid){
+          return tid !== inst.source && templateGroup(TEMPLATES[tid]) === g.key; });
+        if(!ids.length) return '';
+        return '<div class="tplg">'+g.label+'</div>' + ids.map(function(tid){ return tplCard(tid, false); }).join("");
+      }).join("");
 
   return instPicker
     + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
