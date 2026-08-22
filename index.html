@@ -214,6 +214,8 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .set .sn{flex:1;min-width:0}
 .set .sv{font-family:var(--mono);font-size:13px;color:var(--txt-2);white-space:nowrap}
 .set .se{font-family:var(--mono);font-size:12px;color:var(--txt-3);width:46px;text-align:right}
+/* Submaximal by prescription - a statement of fact, not a shortfall. */
+.set .se.sub{width:56px;font-size:11px;color:var(--blue)}
 .set-note{font-size:12px;color:var(--txt-3);padding:0 0 9px;font-style:italic}
 
 .panel{background:var(--surface);border-radius:var(--r);box-shadow:var(--e1);padding:18px;margin-bottom:12px}
@@ -254,8 +256,15 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .tpl .n{font-size:14px;font-weight:500}
 .tpl .m{display:block;font-family:var(--mono);font-size:11px;color:var(--txt-3);margin-top:3px}
 .tpl .b{display:block;font-size:12px;color:var(--txt-2);line-height:1.5;margin-top:6px}
+.tpl .nx{display:block;font-size:11px;color:var(--blue);margin-top:6px}
 .tpl.cur{border-color:var(--accent);background:var(--accent-c)}
 .tpl.cur .n{color:var(--accent-on)} .tpl.cur .m,.tpl.cur .b{color:var(--accent-on);opacity:.85}
+.tpl.cur .nx{color:var(--accent-on);opacity:.9}
+
+/* Where a break-in leads next. An offer, never automatic. */
+.next{background:var(--blue-c);border-radius:12px;padding:12px 14px;margin-bottom:14px;
+  font-size:12.5px;line-height:1.5;color:var(--blue-on)}
+.next .btn-o{margin-top:10px;background:var(--surface);border-color:var(--blue)}
 .btn-o{width:100%;min-height:46px;border-radius:100px;border:1px solid var(--outline);background:var(--surface);
   font-size:14px;color:var(--blue);margin-bottom:9px;font-weight:500}
 .btn-o:active{background:var(--blue-c)}
@@ -434,7 +443,44 @@ var YL = [{role:"top",rrAlt:["8-10","15-20"]},{role:"working",progression:"follo
 var YC = [{role:"top",rr:"12-20"},{role:"working",progression:"follow",loadFactor:0.9,rr:"12-20"}];
 var P2 = [{role:"top",rr:"8-12"},{role:"working",progression:"follow",loadFactor:0.9,rr:"8-12"}];
 
+/* Break-in: submaximal by prescription, and no progression at all. These are
+   the only sets in the app that are not taken to failure - the book is
+   explicit that going to exhaustion here works against the trainee.
+   Note B2's second set is 10% HEAVIER. loadFactor is a back-off everywhere
+   else (Yates uses 0.9); above 1.0 it is a ramp, and that is deliberate. */
+var B1 = [{role:"top", scheme:"submax", progression:"none", rr:"10-10"}];
+var B2 = [{role:"top",     scheme:"submax", progression:"none",   rr:"10-10"},
+          {role:"working", scheme:"submax", progression:"follow",
+           loadFactor:1.1, rr:"10-10"}];
+
+/* The book's eight movements, in its order. */
+function breakInDay(sets){
+  return {focus:"Full Body",
+          list:["bbsquat","bbrow","bbbench","pbn","deadlift","bbcurl","stdcalf","situp"]
+                 .map(function(x){ return {ex:x, sets:sets}; })};
+}
+
 const TEMPLATES = {
+  mentzer_breakin:{
+    name:"Mentzer Break-In",
+    blurb:"Five consecutive days of one easy set per exercise, for a beginner or anyone coming back from a layoff. Nothing here is taken to failure and no weight goes up — that is the point, not a shortcut.",
+    structure:"One set of 10 per exercise, light enough to finish without extreme effort. No progression: the load stays where you put it.",
+    source:"Mentzer & Little, High-Intensity Training the Mike Mentzer Way (2003), p.71. Framed on Selye's general adaptation syndrome — get through the alarm stage before asking for adaptation.",
+    adapted:false, rotation:["A"],
+    rest:{interSession:[1,1],perCode:[1,1],primary:"interSession"},
+    successor:"mentzer_breakin_2",
+    days:{A:breakInDay(B1)}
+  },
+  mentzer_breakin_2:{
+    name:"Mentzer Break-In, Second Phase",
+    blurb:"For when five days of break-in still leaves you sore. Rest the weekend, then three days a week, two sets per exercise. Still nothing to failure.",
+    structure:"Two sets of 10. The second is 10% heavier than the first and should still reach 10 with slightly more effort — not to failure.",
+    source:"Mentzer & Little, High-Intensity Training the Mike Mentzer Way (2003), p.71. Entered only if soreness persists; the book gives no fixed endpoint and the weekday framing is advisory.",
+    adapted:false, rotation:["A"],
+    rest:{interSession:[2,3],perCode:[2,3],primary:"interSession"},
+    successor:"mentzer_ideal",
+    days:{A:breakInDay(B2)}
+  },
   persyn:{
     name:"Persyn 3-Workout",
     blurb:"The Mentzer Ideal Routine, compressed from four workouts to three so nothing waits four weeks to come around again. Same principles, same one-set-to-failure structure — only the split is shortened.",
@@ -722,7 +768,10 @@ function rotation(){ return S.instances[S.active].rotation || ["A","B","C"]; }
 function restSpec(){ return S.instances[S.active].rest || {interSession:[6,8],perCode:[18,24],primary:"perCode"}; }
 function groupWindow(){ return restSpec().perCode || [18,24]; }
 function sessionWindow(){ return restSpec().interSession || [6,8]; }
-function winText(w){ return w[0] === w[1] ? w[0]+" days" : w[0]+"–"+w[1]+" days"; }
+function winText(w){
+  if(w[0] !== w[1]) return w[0]+"–"+w[1]+" days";
+  return w[0] === 1 ? "1 day" : w[0]+" days";
+}
 
 /* How a gap of n days sits against a [lo,hi] window.
    Green means "this is where you want to be", the same as on the session
@@ -792,6 +841,23 @@ function activeRange(id, setNum){ return range({rr: activeRR(id, setNum)}); }
 function e1rm(reps, w, mult){ return Math.round(w * mult * (1 + reps/30)); }
 function suffix(e){ return e.mult === 2 ? " ea" : ""; }
 
+/* How a set reads. A bodyweight movement carries no external load unless
+   something was added, so "10 reps" rather than the meaningless "10 x 0". */
+function setText(e, reps, weight, extra){
+  var r = reps + (extra ? "+" + extra : "");
+  if(e && e.bw) return Number(weight) > 0 ? r + " &times; +" + weight + suffix(e) : r + " reps";
+  return r + " &times; " + weight + (e ? suffix(e) : "");
+}
+/* A flat prescription like "10-10" is not a range; show it as "10". */
+function rrLabel(rr){ var p = String(rr).split("-"); return p[0] === p[1] ? p[0] : String(rr); }
+/* The spec for the set being entered right now, or null outside a session. */
+function setSpec(d, id, setNum){
+  return (d && d.slotMap && d.slotMap[id] && d.slotMap[id].sets[setNum]) || null;
+}
+/* Submaximal by prescription: the load was chosen to stop short of failure,
+   so there is no failure to report and nothing here feeds PRs. */
+function isSubmax(spec){ return !!(spec && spec.scheme === "submax"); }
+
 function setsFor(id){
   var out = [];
   S.sessions.forEach(function(s){ s.sets.forEach(function(x){ if(x.ex === id) out.push(Object.assign({}, x, {date:s.date})); }); });
@@ -855,7 +921,13 @@ function bestFor(id){
     var m = b.set.match(/(\d+)\s*x\s*([\d.]+)/i);
     if(m) better(+m[1], +m[2], e1rm(+m[1], +m[2], e.mult), b.date, true);
   }
-  setsFor(id).forEach(function(x){ if(endedClean(x) && (!x.role || x.role === "top")) better(x.reps, x.weight, x.e1, x.date, false); });
+  /* Submaximal sets are excluded here rather than in endedClean(): they carry
+     no ending to judge, and the load was chosen to stop short on purpose, so
+     they are not evidence of a best effort. */
+  setsFor(id).forEach(function(x){
+    if(x.scheme === "submax") return;
+    if(endedClean(x) && (!x.role || x.role === "top")) better(x.reps, x.weight, x.e1, x.date, false);
+  });
   return best;
 }
 /** DOUBLE PROGRESSION: target derives from the PR (best set), not the last set. */
@@ -919,19 +991,35 @@ function entryFor(id, force){
     var setNum = d ? slotsLogged(d, id) : 0;
     var slotDef = d && d.slotMap && d.slotMap[id] ? d.slotMap[id] : null;
     var setDef = slotDef && slotDef.sets[setNum] ? slotDef.sets[setNum] : {role:"top"};
-    var isFollow = setDef.progression === "follow";
-    var t = targetFor(id);
-    var weight = t.weight, reps = t.reps;
-    if(isFollow && d){
-      var topLogged = d.sets.filter(function(s){ return s.ex === id && (!s.role || s.role === "top"); })[0];
-      if(topLogged && setDef.loadFactor) weight = Math.round(topLogged.weight * setDef.loadFactor);
-      else if(topLogged) weight = topLogged.weight;
-      /* A follow set has no independent target - it opens at the bottom of
-         its own range and you take it as far as the lighter load allows. */
+    var mode = setDef.progression || "double";
+    var submax = isSubmax(setDef);
+    var weight, reps;
+    if(mode === "none"){
+      /* Break-in protocol: nothing is prescribed and targetFor is never
+         consulted. Open at whatever was last lifted so the load is to hand,
+         and let the trainee pick something comfortable. */
+      var lk = lastKnown(id);
+      weight = lk ? lk.weight : null;
       reps = activeRange(id, setNum)[0];
+    } else {
+      var t = targetFor(id);
+      weight = t.weight; reps = t.reps;
+      if(mode === "follow" && d){
+        var topLogged = d.sets.filter(function(s){ return s.ex === id && (!s.role || s.role === "top"); })[0];
+        /* loadFactor is usually a back-off (Yates 0.9) but may be a ramp:
+           the break-in's second set is 1.1, deliberately heavier. */
+        if(topLogged && setDef.loadFactor) weight = Math.round(topLogged.weight * setDef.loadFactor);
+        else if(topLogged) weight = topLogged.weight;
+        /* A follow set has no independent target - it opens at the bottom of
+           its own range and you take it as far as the load allows. */
+        reps = activeRange(id, setNum)[0];
+      }
     }
-    entry[id] = {weight: weight === null ? "" : weight, reps:reps, endedWith:"clean", note:"",
-                 extra:0, setNum:setNum, role:setDef.role || "top"};
+    entry[id] = {weight: weight === null ? "" : weight, reps:reps, note:"",
+                 extra:0, setNum:setNum, role:setDef.role || "top",
+                 scheme: submax ? "submax" : "failure"};
+    /* Only a failure set has an ending to report. */
+    if(!submax) entry[id].endedWith = "clean";
   }
   return entry[id];
 }
@@ -1025,23 +1113,41 @@ function card(d, id, i){
     /* The TOP badge judges the top set, so use the top set's range - setNum
        has already run past the end by the time every set is logged. */
     var topHi = activeRange(id, 0)[1];
-    var ext = function(s){ return s.extra ? '+'+s.extra : ''; };
     var summ = logged.length > 1
-      ? logged.map(function(s){ return s.reps+ext(s)+'&times;'+s.weight; }).join(' / ')+suffix(e)
-      : topSet.reps+ext(topSet)+' &times; '+topSet.weight+suffix(e)+(sew !== "clean" ? ' · '+sew : '');
+      ? logged.map(function(s){ return setText(e, s.reps, s.weight, s.extra); }).join(' / ')
+      : setText(e, topSet.reps, topSet.weight, topSet.extra)
+        + (!topSet.scheme && sew !== "clean" ? ' · '+sew : '');
     return '<article class="card done"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">&#10003;</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
       + '<span class="r">'+summ+'</span></span>'
-      + (sew === "clean" && topSet.reps >= topHi ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
+      /* A submaximal set has no "top of range" to hit - reaching the prescribed
+         count is the whole job, not a personal best. */
+      + (!topSet.scheme && sew === "clean" && topSet.reps >= topHi
+          ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
       + '</button></article>';
   }
 
-  var t = targetFor(id);
+  /* Break-in sets prescribe nothing, so there is no target to compute or show
+     and targetFor is never consulted for them. */
+  var spec = setSpec(d, id, setNum);
+  var submax = isSubmax(spec);
+  /* Two separate gates. `prescribes` decides whether targetFor is consulted at
+     all (section 3: never for progression "none"). `plain` decides how the set
+     is presented - a submaximal set shows a prescription with no rep track and
+     nothing to chase, even when it derives its load from the set before it. */
+  var prescribes = !spec || spec.progression !== "none";
+  var plain = submax || !prescribes;
+  var t = prescribes ? targetFor(id) : null;
+
   if(!isOpen){
+    var lk = plain ? lastKnown(id) : null;
     return '<article class="card"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">'+(i+1)+'</span><span class="cname"><span class="n">'+esc(e.n)+'</span><span class="r">'
-      + (t.pr ? 'last '+(t.last ? t.last.reps+' &times; '+t.last.weight+suffix(e) : '&mdash;')+' &rarr; ' : '')
-      + '<b>'+(t.weight === null ? (t.bwEx ? t.reps+' reps' : 'set baseline') : t.reps+' &times; '+t.weight+suffix(e))+'</b>'
+      + (!plain
+          ? (t.pr ? 'last '+(t.last ? setText(e, t.last.reps, t.last.weight) : '&mdash;')+' &rarr; ' : '')
+            + '<b>'+(t.weight === null ? (t.bwEx ? t.reps+' reps' : 'set baseline') : setText(e, t.reps, t.weight))+'</b>'
+          : '<b>'+lo+' reps</b>, comfortable'
+            + (lk ? ' &middot; last '+setText(e, lk.reps, lk.weight) : ''))
       + '</span></span></button></article>';
   }
 
@@ -1049,31 +1155,42 @@ function card(d, id, i){
   var reps = Number(st.reps) || 0, wt = Number(st.weight) || 0;
   var span = (Math.max(hi, reps) - lo) || 1;
   var pctOf = function(v){ return Math.max(0, Math.min(100, (v - lo) / span * 100)); };
-  var atTop = reps >= hi;
+  /* "Top of range" is a progression signal. A set prescribed to stop short has
+     no top to reach, so it never lights up. */
+  var atTop = !plain && reps >= hi;
   var partner = altPartner(d.workout, d.cycle, id);
 
-  var sameLastPR = t.last && t.pr && t.last.reps === t.pr.reps && t.last.weight === t.pr.weight && t.last.date === t.pr.date;
+  var sameLastPR = t && t.last && t.pr && t.last.reps === t.pr.reps && t.last.weight === t.pr.weight && t.last.date === t.pr.date;
 
   var cap, capCls = "";
-  if(!t.pr){ cap = "No history - this set becomes the baseline."; }
-  else if(t.bwEx){ cap = "Bodyweight exercise - enter today's weight."; }
-  else if(reps < t.reps){ cap = (t.reps - reps)+" short of your PR: "+t.pr.reps+" &times; "+t.pr.weight+suffix(e)+"."; }
+  if(plain){
+    cap = "Stop at "+lo+". This set is meant to feel comfortable - going to failure here works against you.";
+  }
+  else if(!t.pr){ cap = "No history - this set becomes the baseline."; }
+  else if(t.bwEx){ cap = "Bodyweight exercise - add a load only if you use one."; }
+  else if(reps < t.reps){ cap = (t.reps - reps)+" short of your PR: "+setText(e, t.pr.reps, t.pr.weight)+"."; }
   else if(atTop){ cap = "Top of the range. Next session goes to "+bumpWeight(wt, e)+" lb."; capCls = "top"; }
   else if(reps === t.reps){ cap = "On target - beats your PR. "+(hi - reps)+" more earns the next weight jump."; capCls = "good"; }
   else { cap = "+"+(reps - t.reps)+" over target. "+(hi - reps)+" more earns the next weight jump."; capCls = "good"; }
 
-  /* Last / PR / Target lines */
+  /* Last / PR / Target lines. A break-in set has no PR to chase, so it shows
+     only what was last lifted. */
   var infoLines = '';
-  if(!t.pr){
+  if(plain){
+    var plk = lastKnown(id);
+    infoLines = '<div class="lastline"><span>Last: <b>'
+      + (plk ? setText(e, plk.reps, plk.weight) : '&mdash;')+'</b></span><span>'
+      + (plk ? fmtDate(plk.date) : '')+'</span></div>';
+  } else if(!t.pr){
     infoLines = '<div class="lastline"><span>Last: <b>&mdash;</b></span><span></span></div>';
   } else if(sameLastPR){
-    infoLines = '<div class="lastline"><span>Last / PR: <b>'+t.pr.reps+' &times; '+t.pr.weight+suffix(e)+'</b></span><span>'
+    infoLines = '<div class="lastline"><span>Last / PR: <b>'+setText(e, t.pr.reps, t.pr.weight)+'</b></span><span>'
       + (t.pr.seeded ? 'archived ' : '')+fmtDate(t.pr.date)+'</span></div>';
   } else {
     infoLines = '<div class="lastline"><span>Last: <b>'
-      + (t.last ? t.last.reps+' &times; '+t.last.weight+suffix(e) : '&mdash;')+'</b></span><span>'
+      + (t.last ? setText(e, t.last.reps, t.last.weight) : '&mdash;')+'</b></span><span>'
       + (t.last ? fmtDate(t.last.date) : '')+'</span></div>'
-      + '<div class="lastline"><span>PR: <b>'+t.pr.reps+' &times; '+t.pr.weight+suffix(e)+'</b></span><span>'
+      + '<div class="lastline"><span>PR: <b>'+setText(e, t.pr.reps, t.pr.weight)+'</b></span><span>'
       + (t.pr.seeded ? 'archived ' : '')+fmtDate(t.pr.date)+'</span></div>';
   }
 
@@ -1081,7 +1198,7 @@ function card(d, id, i){
   var loggedHtml = '';
   if(logged.length > 0){
     loggedHtml = logged.map(function(s,si){
-      return '<div class="lastline"><span>Set '+(si+1)+': <b>'+s.reps+' &times; '+s.weight+suffix(e)+'</b>'
+      return '<div class="lastline"><span>Set '+(si+1)+': <b>'+setText(e, s.reps, s.weight)+'</b>'
         +(s.extra ? ' <b>+'+s.extra+'</b> '+esc(endedWithDef(s.endedWith).unit)
           : s.endedWith && s.endedWith !== "clean" ? ' ('+s.endedWith+')' : '')
         +'</span><span>&#10003;</span></div>';
@@ -1092,17 +1209,24 @@ function card(d, id, i){
 
   return '<article class="card open"><button class="chead" onclick="toggle(\''+id+'\')">'
     + '<span class="rtile">'+(i+1)+'</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
-    + '<span class="r">'+esc(rrText)+' reps &middot; '+esc(e.unit)+'</span></span></button>'
+    + '<span class="r">'+esc(rrLabel(rrText))+' reps &middot; '+esc(e.unit)+'</span></span></button>'
     + '<div class="cbody">'
     + loggedHtml + setLabel
-    + (t.bumped && !partialDone ? '<div class="bump">You hit <b>'+t.pr.reps+'</b> reps at your PR - top of the '+esc(activeRR(id, 0))
+    + (!plain && t.bumped && !partialDone ? '<div class="bump">You hit <b>'+t.pr.reps+'</b> reps at your PR - top of the '+esc(activeRR(id, 0))
         + ' range. Weight moves <b>'+t.pr.weight+' &rarr; '+t.weight+'</b>, reps reset to <b>'+lo+'</b>.</div>' : '')
     + (st.role !== "working" ? infoLines : '')
-    + '<div class="targline">Target: '+(st.role === "working" ? reps+' &times; '+st.weight+suffix(e)+' (follow)' : t.weight === null ? (t.bwEx ? t.reps+' reps (enter weight)' : 'your call') : t.reps+' &times; '+t.weight+suffix(e))+'</div>'
-    + '<div class="track'+(atTop ? ' hit' : '')+'">'
-    + '<div class="fill" style="width:'+pctOf(reps)+'%"></div>'
-    + '<div class="tgt" style="left:'+pctOf(t.reps)+'%" data-l="'+t.reps+'"></div>'
-    + '<span class="lo">'+lo+'</span><span class="hi">'+hi+'</span><span class="val">'+reps+' reps</span></div>'
+    /* Prescription, not a target. A rep track would invite pushing past it,
+       and with a single-value range it cannot render meaningfully anyway. */
+    + (!plain
+        ? '<div class="targline">Target: '+(st.role === "working" ? setText(e, reps, st.weight)+' (follow)'
+            : t.weight === null ? (t.bwEx ? t.reps+' reps' : 'your call') : setText(e, t.reps, t.weight))+'</div>'
+          + '<div class="track'+(atTop ? ' hit' : '')+'">'
+          + '<div class="fill" style="width:'+pctOf(reps)+'%"></div>'
+          + '<div class="tgt" style="left:'+pctOf(t.reps)+'%" data-l="'+t.reps+'"></div>'
+          + '<span class="lo">'+lo+'</span><span class="hi">'+hi+'</span><span class="val">'+reps+' reps</span></div>'
+        : '<div class="targline">'+lo+' reps'
+          + (st.role === "working" ? ' at '+st.weight+suffix(e)+' &middot; 10% up on set 1' : '')
+          + ' &middot; not to failure</div>')
     + '<div class="cap '+capCls+'">'+cap+'</div>'
     + '<div class="steppers">'
     + '<div class="st"><div class="lbl">Weight</div><div class="ctl">'
@@ -1114,10 +1238,13 @@ function card(d, id, i){
     + '<button onclick="bump(\''+id+'\',\'reps\',-1)" aria-label="fewer reps">&minus;</button>'
     + '<input type="number" inputmode="numeric" value="'+st.reps+'" oninput="setv(\''+id+'\',\'reps\',this.value)">'
     + '<button onclick="bump(\''+id+'\',\'reps\',1)" aria-label="more reps">+</button>'
-    + '</div><div class="unit">range '+esc(rrText)+'</div></div></div>'
-    + '<div class="fail-row">' + ENDED_WITH.map(function(ew){
+    + '</div><div class="unit">'+(plain ? 'aim for ' : 'range ')+esc(rrLabel(rrText))+'</div></div></div>'
+    /* No ending to report on a set prescribed to stop short of failure, so the
+       control is not offered. Submaximal is a property of the prescription,
+       fixed before the bar moved, not something to observe afterwards. */
+    + (submax ? '' : '<div class="fail-row">' + ENDED_WITH.map(function(ew){
         return '<button aria-pressed="'+(st.endedWith === ew.v)+'" onclick="setv(\''+id+'\',\'endedWith\',\''+ew.v+'\')">'
-             + ew.l+'</button>'; }).join("") + '</div>'
+             + ew.l+'</button>'; }).join("") + '</div>')
     /* Extra count, only once a past-failure technique is chosen. The reps
        above stay the clean reps and keep driving progression. */
     + (isExtended(st.endedWith)
@@ -1159,10 +1286,15 @@ function viewHistory(){
       + (from ? ' &middot; '+esc(from) : '')+'</span></span></button>'
       + '<div class="body'+(i === 0 ? '' : ' hide')+'">'
       + s.sets.map(function(x){ var e = exOf(x.ex);
-          var ew = x.endedWith || (x.failure === "Yes" ? "clean" : "short");
+          /* A submaximal set has no ending. Without this guard the fallback
+             below reads its missing endedWith as "short" and badges it as a
+             set the trainee quit early - the opposite of what happened. */
+          var sub = x.scheme === "submax";
+          var ew = sub ? "" : (x.endedWith || (x.failure === "Yes" ? "clean" : "short"));
           return '<div class="set"><span class="sn">'+esc(e ? e.n : x.ex)+'</span>'
-            + '<span class="sv">'+x.reps+(x.extra ? '+'+x.extra : '')+' &times; '+x.weight+(e ? suffix(e) : '')+'</span>'
-            + (ew !== "clean" ? '<span class="se">'+esc(ew)+'</span>' : '')+'</div>'
+            + '<span class="sv">'+setText(e, x.reps, x.weight, x.extra)+'</span>'
+            + (sub ? '<span class="se sub">submax</span>'
+               : ew !== "clean" ? '<span class="se">'+esc(ew)+'</span>' : '')+'</div>'
             + (x.note ? '<div class="set-note">'+esc(x.note)+'</div>' : ''); }).join("")
       + '</div></article>';
   }).join("");
@@ -1196,7 +1328,8 @@ function slotSub(it){
   if(typeof it === "string"){ var e = exOf(it); return e ? e.g+" · "+e.rr+" reps" : "unknown"; }
   if(it.alt) return "alternates by cycle"+(it.sets && it.sets.length > 1 ? " · "+it.sets.length+" sets" : "");
   if(it.ex){ var e2 = exOf(it.ex); var extra = it.sets && it.sets.length > 1 ? " · "+it.sets.length+" sets" : "";
-    return e2 ? e2.g+" · "+(it.sets && it.sets[0] && it.sets[0].rr ? it.sets[0].rr : e2.rr)+" reps"+extra : "unknown"; }
+    var sub = it.sets && it.sets[0] && it.sets[0].scheme === "submax" ? " · not to failure" : "";
+    return e2 ? e2.g+" · "+rrLabel(it.sets && it.sets[0] && it.sets[0].rr ? it.sets[0].rr : e2.rr)+" reps"+extra+sub : "unknown"; }
   return "";
 }
 function viewData(){
@@ -1234,11 +1367,21 @@ function viewData(){
   /* How this program runs: both rest clocks plus set structure. */
   function row(k, v){ return '<div class="r"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>'; }
   var runs = '<div class="runs">'
-    + row("Rotation", rot.join(" &rarr; ")+" &middot; then back to "+rot[0])
+    + row("Rotation", rot.length > 1
+        ? rot.join(" &rarr; ")+" &middot; then back to "+rot[0]
+        : rot[0]+" &middot; the same workout each time")
     + row("Between workouts", winText(sessionWindow()))
-    + row("Each returns", "every "+winText(groupWindow()))
+    + (rot.length > 1 ? row("Each returns", "every "+winText(groupWindow())) : "")
     + (tmpl && tmpl.structure ? row("Sets", esc(tmpl.structure)) : "")
     + '</div>';
+
+  /* A break-in leads somewhere. Offered, never automatic - the book's trigger
+     is whether soreness persists, which the app cannot see. */
+  var nextTmpl = tmpl && tmpl.successor && TEMPLATES[tmpl.successor];
+  var nextNote = nextTmpl
+    ? '<div class="next"><span>When you are ready to move on: <b>'+esc(nextTmpl.name)+'</b></span>'
+      + '<button class="btn-o" onclick="createInstance(\''+tmpl.successor+'\')">Start '+esc(nextTmpl.name)+'</button></div>'
+    : '';
 
   var cite = tmpl
     ? '<div class="cite">'+(tmpl.adapted ? '<b>Adapted.</b> ' : '<b>As published.</b> ')+esc(tmpl.source)+'</div>'
@@ -1275,17 +1418,19 @@ function viewData(){
   /* Template picker */
   var tplHtml = Object.keys(TEMPLATES).map(function(tid){
     var t = TEMPLATES[tid], cur = tid === inst.source;
+    var nxt = t.successor && TEMPLATES[t.successor];
     return '<button class="tpl'+(cur ? ' cur' : '')+'" onclick="createInstance(\''+tid+'\')">'
       + '<span class="n">'+esc(t.name)+(cur ? ' &middot; current' : '')+'</span>'
       + '<span class="m">'+t.rotation.join("/")+' &middot; '+winText(t.rest.interSession)+' apart &middot; '
       + (t.adapted ? 'adapted' : 'as published')+'</span>'
-      + '<span class="b">'+esc(t.blurb)+'</span></button>';
+      + '<span class="b">'+esc(t.blurb)+'</span>'
+      + (nxt ? '<span class="nx">Leads to '+esc(nxt.name)+'</span>' : '')+'</button>';
   }).join("");
 
   return instPicker
     + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
     + (tmpl && tmpl.blurb ? '<p>'+esc(tmpl.blurb)+'</p>' : '')
-    + runs + cite + staleNote
+    + runs + cite + nextNote + staleNote
     + '<p>Tap a workout to add, remove or reorder movements.</p>'
     + progHtml
     + '<button class="btn-o" onclick="resetProgram()">Reset to source template</button></div>'
@@ -1355,14 +1500,21 @@ function bump(id,k,delta){
 function commit(id){
   var st = entryFor(id), reps = Number(st.reps), weight = Number(st.weight), e = exOf(id);
   if(!reps || reps < 1) return toast("Enter reps first");
-  if(!weight || weight <= 0) return toast("Enter a weight first");
+  /* Bodyweight movements log on reps alone - any belt or dumbbell load is
+     optional extra. Demanding a weight made all six of them unloggable. */
+  if(e.bw){ if(!(weight > 0)) weight = 0; }
+  else if(!weight || weight <= 0) return toast("Enter a weight first");
   var hi = activeRange(id, st.setNum || 0)[1];
   var ew = st.endedWith;
   var role = st.role || "top";
+  var submax = st.scheme === "submax";
   var extra = isExtended(ew) ? Math.max(0, Number(st.extra) || 0) : 0;
-  var set = {ex:id, reps:reps, weight:weight, endedWith:ew, note:st.note || "",
+  var set = {ex:id, reps:reps, weight:weight, note:st.note || "",
              e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult, t:new Date().toISOString(),
              role:role, setNum:st.setNum || 0};
+  /* A submaximal set records the scheme instead of an ending: there was no
+     failure to describe, and the scheme is what keeps it out of PRs. */
+  if(submax) set.scheme = "submax"; else set.endedWith = ew;
   if(extra) set.extra = extra;
   S.draft.sets.push(set);
   save();
@@ -1376,7 +1528,9 @@ function commit(id){
   /* Past-failure work no longer suppresses the target: the reps logged are the
      clean ones and they earned whatever they earned. Only "short" holds back. */
   var tail = extra ? " +"+extra+" "+endedWithDef(ew).unit : "";
-  if(role === "working"){
+  if(submax){
+    toast("Logged "+reps+" reps"+(weight ? " x "+weight : ""));
+  } else if(role === "working"){
     toast("Logged "+reps+" x "+weight+tail);
   } else if(ew === "short"){
     toast("Logged "+reps+" x "+weight+" (short of failure - target unchanged)");
@@ -1397,6 +1551,7 @@ function startSession(code, cycle){
       var out = {role:sd.role || "top"};
       if(sd.progression) out.progression = sd.progression;
       if(sd.loadFactor) out.loadFactor = sd.loadFactor;
+      if(sd.scheme && sd.scheme !== "failure") out.scheme = sd.scheme;
       if(rr) out.rr = rr;
       return out;
     });
