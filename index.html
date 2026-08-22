@@ -139,9 +139,9 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .st input:focus{outline:none;color:var(--blue)}
 .unit{font-size:11px;color:var(--txt-3);text-align:center;margin-top:4px;min-height:14px}
 
-.fail-row{display:flex;gap:8px;margin-top:12px}
-.fail-row button{flex:1;min-height:40px;border-radius:100px;border:1px solid var(--outline);
-  font-size:12px;color:var(--txt-2);background:var(--surface)}
+.fail-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.fail-row button{min-height:36px;border-radius:100px;border:1px solid var(--outline);
+  font-size:11px;color:var(--txt-2);background:var(--surface)}
 .fail-row button[aria-pressed="true"]{border-color:var(--green);background:var(--green-c);color:var(--green-on);font-weight:500}
 .note-in{width:100%;margin-top:12px;background:var(--surface-2);border:1px solid transparent;
   border-radius:12px;padding:12px;color:var(--txt);font-size:14px;resize:none}
@@ -313,7 +313,25 @@ const LIB = {
   pullover: {n:"Nautilus Lat Pullover",      g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"", baseOn:"", warn:"Lat pre-exhaust for the pulldown. Rest until your heart rate settles before the pulldown — muscular failure, not breathing failure."},
   sapd:     {n:"Straight-Arm Pulldown",     g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
   bentlat:  {n:"Bent-Over Laterals",        g:"Rear Delts",      rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"",       baseOn:""},
-  bbcurl:   {n:"Barbell Curl",              g:"Biceps",          rr:"6-12",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""}
+  bbcurl:   {n:"Barbell Curl",              g:"Biceps",          rr:"6-12",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""},
+  /* ---- new exercises for multi-template support ---- */
+  bbsquat:    {n:"Barbell Squat",             g:"Quads",           rr:"6-12",  mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:""},
+  shrug:      {n:"Barbell Shrug",             g:"Traps",           rr:"6-12",  mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:""},
+  pbn:        {n:"Press Behind Neck",         g:"Delts",           rr:"6-10",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""},
+  stdcalf:    {n:"Standing Calf Raise",       g:"Calves",          rr:"12-20", mult:1, step:10, unit:"total load",       baseSet:"", baseOn:""},
+  situp:      {n:"Sit-Ups",                   g:"Abs",             rr:"12-20", mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""},
+  bbbench:    {n:"Barbell Bench Press",       g:"Chest",           rr:"6-10",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""},
+  chins:      {n:"Chin-Ups (Belt)",           g:"Back",            rr:"6-10",  mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""},
+  bbrow:      {n:"Barbell Row",               g:"Back",            rr:"6-10",  mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:""},
+  hacksquat:  {n:"Hack Squat",                g:"Quads",           rr:"8-15",  mult:1, step:20, unit:"total sled",       baseSet:"", baseOn:""},
+  sldl:       {n:"Stiff-Legged Deadlift",     g:"Hamstrings",      rr:"8-12",  mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:""},
+  concurl:    {n:"DB Concentration Curl",     g:"Biceps",          rr:"6-10",  mult:1, step:5,  unit:"per dumbbell",     baseSet:"", baseOn:""},
+  hammercurl: {n:"DB Hammer Curl",            g:"Biceps",          rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"", baseOn:""},
+  ezext:      {n:"Lying EZ-Curl Extension",   g:"Triceps",         rr:"6-10",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""},
+  declinebb:  {n:"Decline Barbell Press",     g:"Chest",           rr:"6-10",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""},
+  crunch:     {n:"Lying Crunch",              g:"Abs",             rr:"12-20", mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""},
+  hangleg:    {n:"Hanging Leg Raise",         g:"Abs",             rr:"8-15",  mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""},
+  revcrunch:  {n:"Reverse Crunch",            g:"Abs",             rr:"12-20", mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""}
 };
 
 /* Snapshot of pre-strip baselines for migrating existing users */
@@ -340,15 +358,51 @@ const ORDER = ["A","B","C"];
 const TARGET_DAYS = 24;
 
 /* ---------------- storage ---------------- */
-const KEY = "hitlog.v2";
+const KEY_V2 = "hitlog.v2";
+const KEY    = "hitlog.v3";
 let mem = null;
 const HAS_LS = (function(){ try{ localStorage.setItem("__t","1"); localStorage.removeItem("__t"); return true; }catch(e){ return false; } })();
-function blank(){ return {sessions:[], draft:null, program:JSON.parse(JSON.stringify(DEFAULT_PROGRAM)), custom:{}, baselines:{}}; }
+
+function blank(){
+  var p = JSON.parse(JSON.stringify(DEFAULT_PROGRAM));
+  return {schema:3, instances:{i1:{source:"persyn",name:"Persyn 3-Workout",edited:false,program:p}},
+          active:"i1", sessions:[], draft:null, custom:{}, baselines:{}};
+}
+
+/** Migrate v2 data (or a v2 export) into the v3 schema.  Idempotent. */
+function migrateV2(d){
+  if(d && d.schema === 3) return d;
+  var p = (d && d.program) ? d.program : JSON.parse(JSON.stringify(DEFAULT_PROGRAM));
+  var isEdited = JSON.stringify(p) !== JSON.stringify(DEFAULT_PROGRAM);
+  var sessions = (d && d.sessions || []).map(function(s){
+    if(!s.instance) s.instance = "i1";
+    /* v2 failure → v3 endedWith */
+    s.sets.forEach(function(x){
+      if(!x.endedWith){ x.endedWith = (x.failure === "Yes" || !x.failure) ? "clean" : "short"; }
+    });
+    return s;
+  });
+  var draft = d && d.draft ? Object.assign({}, d.draft, {instance: d.draft.instance || "i1"}) : null;
+  if(draft){ draft.sets.forEach(function(x){ if(!x.endedWith){ x.endedWith = (x.failure === "Yes" || !x.failure) ? "clean" : "short"; } }); }
+  return {schema:3,
+    instances:{i1:{source:"persyn", name:"Persyn 3-Workout", edited:isEdited, program:p}},
+    active:"i1", sessions:sessions, draft:draft,
+    custom:(d && d.custom) || {}, baselines:(d && d.baselines) || {}};
+}
+
 function load(){
   let d;
   if(!HAS_LS) d = mem || (mem = blank());
-  else { try{ d = JSON.parse(localStorage.getItem(KEY)) || blank(); }catch(e){ d = blank(); } }
-  if(!d.program) d.program = JSON.parse(JSON.stringify(DEFAULT_PROGRAM));
+  else {
+    try{ d = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+    if(!d){
+      /* fall back to v2 and migrate */
+      try{ d = JSON.parse(localStorage.getItem(KEY_V2)); }catch(e){}
+      d = d ? migrateV2(d) : blank();
+    }
+    if(!d.schema || d.schema < 3) d = migrateV2(d);
+  }
+  if(!d.instances) d = migrateV2(d);
   if(!d.custom) d.custom = {};
   if(!d.sessions) d.sessions = [];
   if(!d.baselines){ d.baselines = {}; for(var k in LEGACY_BASELINES) d.baselines[k] = JSON.parse(JSON.stringify(LEGACY_BASELINES[k])); }
@@ -366,6 +420,10 @@ function load(){
 }
 function save(){ if(HAS_LS){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} } else { mem = S; } }
 let S = load();
+
+/** Shorthand for the active instance's program object. */
+function prog(){ return S.instances[S.active].program; }
+function markEdited(){ S.instances[S.active].edited = true; }
 
 /* ---------------- helpers ---------------- */
 function today(){
@@ -403,6 +461,21 @@ function bumpWeight(w, e){
   var raw = w * (e.pct == null ? 5 : e.pct) / 100;
   return w + Math.max(e.step, Math.round(raw / e.step) * e.step);
 }
+/** Beyond-failure / set-completion enum.  Only "clean" feeds PRs and progression. */
+const ENDED_WITH = [
+  {v:"clean",     l:"Clean"},
+  {v:"forced",    l:"Forced"},
+  {v:"negatives", l:"Negatives"},
+  {v:"restpause", l:"Rest-pause"},
+  {v:"drop",      l:"Drop set"},
+  {v:"partials",  l:"Partials"},
+  {v:"static",    l:"Static"},
+  {v:"short",     l:"Short"}
+];
+function endedClean(set){
+  if(set.endedWith) return set.endedWith === "clean";
+  return set.failure === "Yes" || !set.failure;
+}
 /** PR = most reps at the heaviest weight achieved. Weight takes priority. */
 function bestFor(id){
   var e = exOf(id), best = null;
@@ -416,7 +489,7 @@ function bestFor(id){
     var m = b.set.match(/(\d+)\s*x\s*([\d.]+)/i);
     if(m) better(+m[1], +m[2], e1rm(+m[1], +m[2], e.mult), b.date, true);
   }
-  setsFor(id).forEach(function(x){ better(x.reps, x.weight, x.e1, x.date, false); });
+  setsFor(id).forEach(function(x){ if(endedClean(x)) better(x.reps, x.weight, x.e1, x.date, false); });
   return best;
 }
 /** DOUBLE PROGRESSION: target derives from the PR (best set), not the last set. */
@@ -433,18 +506,18 @@ function lastGroupDate(g){
   S.sessions.forEach(function(s){ s.sets.forEach(function(x){ var e = exOf(x.ex); if(e && e.g === g && (!d || s.date > d)) d = s.date; }); });
   return d;
 }
-function focusOf(c){ return S.program[c].focus; }
+function focusOf(c){ return prog()[c].focus; }
 function nextWorkout(){
-  var done = S.sessions.filter(function(s){ return s.sets.length; });
+  var done = S.sessions.filter(function(s){ return s.sets.length && s.instance === S.active; });
   if(!done.length) return {code:"A", cycle:0};
   var code = ORDER[(ORDER.indexOf(done[done.length-1].workout) + 1) % 3];
   return {code:code, cycle:done.filter(function(s){ return s.workout === code; }).length};
 }
 function resolveList(code, cycle){
-  return S.program[code].list.map(function(it){ return typeof it === "string" ? it : it.alt[cycle % 2]; });
+  return prog()[code].list.map(function(it){ return typeof it === "string" ? it : it.alt[cycle % 2]; });
 }
 function altPartner(code, cycle, id){
-  var list = S.program[code].list;
+  var list = prog()[code].list;
   for(var i=0;i<list.length;i++){
     var it = list[i];
     if(typeof it === "object" && it.alt.indexOf(id) > -1) return it.alt.filter(function(x){ return x !== id; })[0];
@@ -464,7 +537,7 @@ var entry = {};
 function entryFor(id, force){
   if(!entry[id] || force){
     var t = targetFor(id);
-    entry[id] = {weight: t.weight === null ? "" : t.weight, reps:t.reps, failure:"Yes", note:""};
+    entry[id] = {weight: t.weight === null ? "" : t.weight, reps:t.reps, endedWith:"clean", note:""};
   }
   return entry[id];
 }
@@ -475,8 +548,8 @@ function viewToday(){
   var auto = nextWorkout();
   var code = pick || auto.code;
   setAccent(code);
-  var cycle = S.sessions.filter(function(s){ return s.workout === code; }).length;
-  var lastOf = S.sessions.slice().reverse().filter(function(s){ return s.workout === code; })[0];
+  var cycle = S.sessions.filter(function(s){ return s.workout === code && s.instance === S.active; }).length;
+  var lastOf = S.sessions.slice().reverse().filter(function(s){ return s.workout === code && s.instance === S.active; })[0];
   var since = lastOf ? daysBetween(lastOf.date, today()) : null;
 
   var groups = [], seen = {};
@@ -532,10 +605,12 @@ function card(d, id, i){
 
   if(logged.length && !isOpen){
     var s = logged[logged.length-1];
+    var sew = s.endedWith || (s.failure === "Yes" ? "clean" : "short");
+    var ewTag = sew !== "clean" ? ' · '+sew : '';
     return '<article class="card done"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">&#10003;</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
-      + '<span class="r">'+s.reps+' &times; '+s.weight+suffix(e)+'</span></span>'
-      + (s.reps >= hi ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
+      + '<span class="r">'+s.reps+' &times; '+s.weight+suffix(e)+ewTag+'</span></span>'
+      + (sew === "clean" && s.reps >= hi ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
       + '</button></article>';
   }
 
@@ -604,9 +679,9 @@ function card(d, id, i){
     + '<input type="number" inputmode="numeric" value="'+st.reps+'" oninput="setv(\''+id+'\',\'reps\',this.value)">'
     + '<button onclick="bump(\''+id+'\',\'reps\',1)" aria-label="more reps">+</button>'
     + '</div><div class="unit">range '+esc(e.rr)+'</div></div></div>'
-    + '<div class="fail-row">' + ["Yes","Forced","Cut short"].map(function(fv){
-        return '<button aria-pressed="'+(st.failure === fv)+'" onclick="setv(\''+id+'\',\'failure\',\''+fv+'\')">'
-             + (fv === "Yes" ? "To failure" : fv)+'</button>'; }).join("") + '</div>'
+    + '<div class="fail-row">' + ENDED_WITH.map(function(ew){
+        return '<button aria-pressed="'+(st.endedWith === ew.v)+'" onclick="setv(\''+id+'\',\'endedWith\',\''+ew.v+'\')">'
+             + ew.l+'</button>'; }).join("") + '</div>'
     + '<textarea class="note-in" rows="2" placeholder="'+(e.warn ? esc(e.warn) : "Notes")+'" oninput="setv(\''+id+'\',\'note\',this.value)">'+esc(st.note)+'</textarea>'
     + '<button class="btn-log'+(atTop ? ' top' : '')+'" onclick="commit(\''+id+'\')">'+(atTop ? "Log - top of range" : "Log set")+'</button>'
     + '<div class="mini-row">'
@@ -627,8 +702,10 @@ function viewHistory(){
       + '<span class="mm">'+esc(focusOf(s.workout))+' &middot; '+s.sets.length+' sets'+(gap !== null ? ' &middot; '+gap+'d gap' : '')+'</span></span></button>'
       + '<div class="body'+(i === 0 ? '' : ' hide')+'">'
       + s.sets.map(function(x){ var e = exOf(x.ex);
+          var ew = x.endedWith || (x.failure === "Yes" ? "clean" : "short");
           return '<div class="set"><span class="sn">'+esc(e ? e.n : x.ex)+'</span>'
-            + '<span class="sv">'+x.reps+' &times; '+x.weight+(e ? suffix(e) : '')+'</span></div>'
+            + '<span class="sv">'+x.reps+' &times; '+x.weight+(e ? suffix(e) : '')+'</span>'
+            + (ew !== "clean" ? '<span class="se">'+esc(ew)+'</span>' : '')+'</div>'
             + (x.note ? '<div class="set-note">'+esc(x.note)+'</div>' : ''); }).join("")
       + '</div></article>';
   }).join("");
@@ -655,9 +732,9 @@ function viewRecords(){
 function viewData(){
   var nSets = S.sessions.reduce(function(a,s){ return a + s.sets.length; }, 0);
   var progHtml = ORDER.map(function(c){
-    var open = editWO === c, items = S.program[c].list;
+    var open = editWO === c, items = prog()[c].list;
     return '<div class="wo-edit"><button class="h" onclick="editWO='+(open ? 'null' : "'"+c+"'")+';addTo=null;newForm=false;render()">'
-      + '<span class="l '+c+'">'+c+'</span><span class="t">'+esc(S.program[c].focus)+'</span>'
+      + '<span class="l '+c+'">'+c+'</span><span class="t">'+esc(prog()[c].focus)+'</span>'
       + '<span class="c">'+items.length+' &middot; '+(open ? '&#9650;' : '&#9660;')+'</span></button>'
       + (open ? '<div class="list">' + items.map(function(it, i){
           var isAlt = typeof it === "object";
@@ -700,7 +777,7 @@ function viewData(){
 
 function pickerFor(c){
   var A = allEx(), used = {};
-  S.program[c].list.forEach(function(it){
+  prog()[c].list.forEach(function(it){
     if(typeof it === "object") it.alt.forEach(function(x){ used[x] = 1; }); else used[it] = 1;
   });
   var pool = Object.keys(A).filter(function(x){ return !used[x]; });
@@ -728,7 +805,7 @@ function setBW(v){ if(S.draft){ S.draft.bodyweight = v === "" ? null : Number(v)
 function toggle(id){ open_ = open_ === id ? null : id; if(open_) entryFor(open_, true); render(); }
 function setv(id,k,v){
   var st = entryFor(id);
-  st[k] = (k === "note" || k === "failure") ? v : (v === "" ? "" : Number(v));
+  st[k] = (k === "note" || k === "endedWith") ? v : (v === "" ? "" : Number(v));
   if(k === "note") return;                       // state only, no re-render
   if(k === "weight" || k === "reps") renderKeepFocus(k); else render();
 }
@@ -742,22 +819,27 @@ function commit(id){
   if(!reps || reps < 1) return toast("Enter reps first");
   if(!weight || weight <= 0) return toast("Enter a weight first");
   var hi = range(e)[1];
-  S.draft.sets.push({ex:id, reps:reps, weight:weight, failure:st.failure, note:st.note || "",
+  var ew = st.endedWith;
+  S.draft.sets.push({ex:id, reps:reps, weight:weight, endedWith:ew, note:st.note || "",
                      e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult, t:new Date().toISOString()});
   save();
-  toast(reps >= hi ? "Top of range - "+bumpWeight(weight, e)+" lb next time" : "Logged - "+reps+" x "+weight, reps >= hi);
+  if(ew !== "clean"){
+    toast("Logged "+reps+" × "+weight+" ("+ew+" — won’t move target)");
+  } else {
+    toast(reps >= hi ? "Top of range - "+bumpWeight(weight, e)+" lb next time" : "Logged - "+reps+" x "+weight, reps >= hi);
+  }
   delete entry[id]; open_ = null; render();
 }
 function startSession(code, cycle){
   var prevBW = null;
   for(var i = S.sessions.length - 1; i >= 0; i--){ if(S.sessions[i].bodyweight != null){ prevBW = S.sessions[i].bodyweight; break; } }
-  S.draft = {date:today(), workout:code, cycle:cycle, sets:[], order:resolveList(code, cycle), bodyweight:prevBW};
+  S.draft = {date:today(), workout:code, cycle:cycle, sets:[], order:resolveList(code, cycle), bodyweight:prevBW, instance:S.active};
   pick = null; save(); render();
 }
 function finishSession(){
   var d = S.draft; if(!d) return;
   if(!d.sets.length){ S.draft = null; save(); render(); return; }
-  var sess = {date:d.date, workout:d.workout, cycle:d.cycle, sets:d.sets};
+  var sess = {date:d.date, workout:d.workout, cycle:d.cycle, sets:d.sets, instance:d.instance || S.active};
   if(d.bodyweight != null) sess.bodyweight = d.bodyweight;
   S.sessions.push(sess);
   S.sessions.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
@@ -774,12 +856,12 @@ function dropToday(id){
   open_ = null; save(); render();
 }
 function move(c,i,dir){
-  var l = S.program[c].list, j = i + dir;
+  var l = prog()[c].list, j = i + dir;
   if(j < 0 || j >= l.length) return;
-  var tmp = l[i]; l[i] = l[j]; l[j] = tmp; save(); render();
+  var tmp = l[i]; l[i] = l[j]; l[j] = tmp; markEdited(); save(); render();
 }
-function removeEx(c,i){ S.program[c].list.splice(i,1); save(); toast("Removed"); render(); }
-function addEx(c,id){ S.program[c].list.push(id); addTo = null; save(); toast("Added"); render(); }
+function removeEx(c,i){ prog()[c].list.splice(i,1); markEdited(); save(); toast("Removed"); render(); }
+function addEx(c,id){ prog()[c].list.push(id); markEdited(); addTo = null; save(); toast("Added"); render(); }
 function createEx(c){
   var g = function(id){ var el = document.getElementById(id); return el ? (el.value || "").trim() : ""; };
   var n = g("nf_n"); if(!n) return toast("Name it first");
@@ -789,17 +871,20 @@ function createEx(c){
   var id = "cx_" + Date.now().toString(36);
   S.custom[id] = {n:n, g:g("nf_g") || "Other", rr:rr.replace(/\s/g,""), mult:mult,
     step:Number(g("nf_s")) || 5, pct:Number(g("nf_p")) || 5, unit: mult === 2 ? "per dumbbell" : "load", baseSet:"", baseOn:""};
-  S.program[c].list.push(id); newForm = false; addTo = null; save(); toast(n + " added"); render();
+  prog()[c].list.push(id); markEdited(); newForm = false; addTo = null; save(); toast(n + " added"); render();
 }
 function resetProgram(){
-  if(!confirm("Reset all three workouts to the default program? Logged sessions are kept.")) return;
-  S.program = JSON.parse(JSON.stringify(DEFAULT_PROGRAM)); save(); toast("Program reset"); render();
+  if(!confirm("Reset all workouts to the source template? Logged sessions are kept.")) return;
+  S.instances[S.active].program = JSON.parse(JSON.stringify(DEFAULT_PROGRAM));
+  S.instances[S.active].edited = false;
+  save(); toast("Program reset"); render();
 }
 function exportJSON(){
   var A = allEx(), lib = {};
   for(var k in A){ var ex = A[k]; lib[k] = {n:ex.n, g:ex.g, rr:ex.rr, mult:ex.mult, step:ex.step, pct:ex.pct == null ? 5 : ex.pct, unit:ex.unit}; if(ex.bw) lib[k].bw = true; }
-  var payload = {app:"hitlog", version:2, exported:new Date().toISOString(),
-                 sessions:S.sessions, draft:S.draft, program:S.program, custom:S.custom, library:lib, baselines:S.baselines};
+  var payload = {app:"hitlog", version:3, schema:3, exported:new Date().toISOString(),
+                 instances:S.instances, active:S.active,
+                 sessions:S.sessions, draft:S.draft, program:prog(), custom:S.custom, library:lib, baselines:S.baselines};
   var blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "hitlog_"+today()+".json"; a.click();
@@ -812,8 +897,10 @@ function importJSON(input){
     try{
       var d = JSON.parse(r.result);
       if(!Array.isArray(d.sessions)) throw new Error("bad");
-      S = {sessions:d.sessions, draft:d.draft || null,
-           program:d.program || JSON.parse(JSON.stringify(DEFAULT_PROGRAM)), custom:d.custom || {}};
+      if(!d.schema || d.schema < 3) d = migrateV2(d);
+      S = {schema:3, instances:d.instances, active:d.active,
+           sessions:d.sessions, draft:d.draft || null,
+           custom:d.custom || {}, baselines:d.baselines || S.baselines || {}};
       save(); toast("Imported "+d.sessions.length+" sessions"); render();
     }catch(e){ toast("That is not a HIT Log export"); }
     input.value = "";
