@@ -176,9 +176,7 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .sess .sh{display:flex;align-items:center;gap:14px;padding:14px 16px;width:100%;text-align:left;min-height:var(--tap)}
 .sess .wl{width:40px;height:40px;flex:0 0 40px;border-radius:10px;display:flex;align-items:center;
   justify-content:center;font-weight:700;font-size:16px}
-.sess .wl.A{background:var(--blue-c);color:var(--blue)}
-.sess .wl.B{background:var(--green-c);color:var(--green)}
-.sess .wl.C{background:var(--red-c);color:var(--red)}
+/* wl colors applied inline via wlStyle() */
 .sess .sd{flex:1}
 .sess .sd .dt{font-size:15px;font-weight:500}
 .sess .sd .mm{font-size:12px;color:var(--txt-2);margin-top:2px}
@@ -202,9 +200,7 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .wo-edit>.h{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;text-align:left;min-height:52px}
 .wo-edit>.h .l{width:34px;height:34px;flex:0 0 34px;border-radius:9px;display:flex;align-items:center;
   justify-content:center;font-weight:700;font-size:15px}
-.wo-edit>.h .l.A{background:var(--blue-c);color:var(--blue)}
-.wo-edit>.h .l.B{background:var(--green-c);color:var(--green)}
-.wo-edit>.h .l.C{background:var(--red-c);color:var(--red)}
+/* .l colors applied inline via wlStyle() */
 .wo-edit>.h .t{flex:1;font-size:14px;font-weight:500}
 .wo-edit>.h .c{font-size:12px;color:var(--txt-3)}
 .wo-edit .list{background:var(--surface);padding:8px 14px 14px}
@@ -270,14 +266,25 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 <script>
 "use strict";
 
-/* Google-palette accent per workout: A blue, B green, C red. */
-var WTHEME = {
-  A:{a:"var(--blue)",  c:"var(--blue-c)",  o:"var(--blue-on)"},
-  B:{a:"var(--green)", c:"var(--green-c)", o:"var(--green-on)"},
-  C:{a:"var(--red)",   c:"var(--red-c)",   o:"var(--red-on)"}
-};
+/* Palette-based accent: position in the rotation picks the color. */
+var WPALETTE = [
+  {a:"var(--blue)",  c:"var(--blue-c)",  o:"var(--blue-on)"},
+  {a:"var(--green)", c:"var(--green-c)", o:"var(--green-on)"},
+  {a:"var(--red)",   c:"var(--red-c)",   o:"var(--red-on)"},
+  {a:"var(--amber)", c:"var(--amber-c)", o:"var(--amber-on)"}
+];
+function wtheme(code){
+  var rot = rotation();
+  var idx = rot.indexOf(code);
+  if(idx < 0) idx = 0;
+  return WPALETTE[idx % WPALETTE.length];
+}
+function wlStyle(code){
+  var t = wtheme(code);
+  return 'background:'+t.c+';color:'+t.a;
+}
 function setAccent(code){
-  var t = WTHEME[code] || WTHEME.A, r = document.documentElement.style;
+  var t = wtheme(code), r = document.documentElement.style;
   r.setProperty("--accent", t.a); r.setProperty("--accent-c", t.c); r.setProperty("--accent-on", t.o);
 }
 
@@ -349,13 +356,156 @@ const LEGACY_BASELINES = {
   bbcurl:{set:"8x80",date:"2026-04-24"}
 };
 
+/* ============================================================
+   TEMPLATE LIBRARY  (read-only reference data)
+   Shared set-spec shorthands:
+     Y2 = Yates two-heavy-set (6-10 default rr)
+     YL = Yates two-heavy-set, lower-body cycled rr
+     YC = Yates two-heavy-set, calf (12-20)
+     P2 = Perez two-heavy-set (8-12 fixed)
+   ============================================================ */
+var Y2 = [{role:"top"},{role:"working",progression:"follow",loadFactor:0.9}];
+var YL = [{role:"top",rrAlt:["8-10","15-20"]},{role:"working",progression:"follow",loadFactor:0.9,rrAlt:["8-10","15-20"]}];
+var YC = [{role:"top",rr:"12-20"},{role:"working",progression:"follow",loadFactor:0.9,rr:"12-20"}];
+var P2 = [{role:"top",rr:"8-12"},{role:"working",progression:"follow",loadFactor:0.9,rr:"8-12"}];
+
+const TEMPLATES = {
+  persyn:{
+    name:"Persyn 3-Workout",
+    source:"Adapted from Mentzer, High-Intensity Training the Mike Mentzer Way (2003), compressed from four workouts to three.",
+    adapted:true, rotation:["A","B","C"],
+    rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
+    days:{
+      A:{focus:"Chest & Back",list:["fly","incline","flat","pullover","pulldown","row","deadlift"]},
+      B:{focus:"Legs & Abs",list:["legext",{alt:["legpress","squat"]},"legcurl",{alt:["donkey","calf"]},"abs"]},
+      C:{focus:"Shoulders & Arms",list:["lateral","revfly","curl","bbcurl","pushdown","dips","facepull"]}
+    }
+  },
+  mentzer_ideal:{
+    name:"Mentzer Ideal Routine",
+    source:"Little & Mentzer, High-Intensity Training the Mike Mentzer Way (2003).",
+    adapted:false, rotation:["W1","W2","W3","W4"],
+    rest:{interSession:[4,7],perCode:[16,28],primary:"interSession"},
+    days:{
+      W1:{focus:"Chest & Back",note:"Pre-exhaust pairs: flyes → incline press, pulldowns → pulldowns. No rest between paired exercises.",
+          list:[{ex:"fly",sets:[{role:"top",rr:"6-10"}],link:"preexhaust"},
+                {ex:"incline",sets:[{role:"top",rr:"1-3"}]},
+                {ex:"sapd",sets:[{role:"top",rr:"6-10"}],link:"preexhaust"},
+                {ex:"pulldown",sets:[{role:"top",rr:"6-10"}]},
+                {ex:"deadlift",sets:[{role:"top",rr:"6-10"}]}]},
+      W2:{focus:"Legs & Abs",
+          list:[{ex:"legext",sets:[{role:"top",rr:"12-20"}],link:"preexhaust"},
+                {ex:"legpress",sets:[{role:"top",rr:"12-20"}]},
+                {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]},
+                {ex:"situp",sets:[{role:"top",rr:"12-20"}]}]},
+      W3:{focus:"Shoulders & Arms",note:"Pre-exhaust: pushdowns → dips.",
+          list:[{ex:"lateral",sets:[{role:"top",rr:"6-10"}]},
+                {ex:"bentlat",sets:[{role:"top",rr:"6-10"}]},
+                {ex:"curl",sets:[{role:"top",rr:"6-10"}]},
+                {ex:"pushdown",sets:[{role:"top",rr:"6-10"}],link:"preexhaust"},
+                {ex:"dips",sets:[{role:"top",rr:"3-5"}]}]},
+      W4:{focus:"Legs & Abs (repeat)",
+          list:[{ex:"legext",sets:[{role:"top",rr:"12-20"}],link:"preexhaust"},
+                {ex:"legpress",sets:[{role:"top",rr:"12-20"}]},
+                {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]},
+                {ex:"situp",sets:[{role:"top",rr:"12-20"}]}]}
+    }
+  },
+  mentzer_consolidation:{
+    name:"Mentzer Consolidation",
+    source:"Little & Mentzer, High-Intensity Training the Mike Mentzer Way (2003). Start at 5–6 days rest, increase over time.",
+    adapted:false, rotation:["W1","W2"],
+    rest:{interSession:[5,6],perCode:[10,12],primary:"interSession"},
+    days:{
+      W1:{focus:"Squat & Upper",note:"Swap squat for leg press occasionally. Substitution is permission to edit, not a strict alternation.",
+          list:[{alt:["bbsquat","legpress"],sets:[{role:"top",rr:"12-20"}]},
+                {ex:"pulldown",sets:[{role:"top",rr:"6-10"}]},
+                {ex:"dips",sets:[{role:"top",rr:"6-10"}]}]},
+      W2:{focus:"Deadlift & Upper",note:"Swap deadlift for shrug occasionally.",
+          list:[{alt:["deadlift","shrug"],sets:[{role:"top",rr:"6-10"}]},
+                {ex:"pbn",sets:[{role:"top",rr:"6-10"}]},
+                {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]}]}
+    }
+  },
+  yates_bng:{
+    name:"Yates Blood & Guts",
+    source:"Dorian Yates, Blood and Guts (1993). Split p.37, movements p.114, counts p.32, reps p.49.",
+    adapted:true, rotation:["D1","D2","D4"],
+    rest:{interSession:[1,2],perCode:[5,7],primary:"perCode"},
+    days:{
+      D1:{focus:"Chest, Biceps & Triceps",
+          note:"p.118: decline BB is superior for mid-low chest; most pec tears come from flat bench.",
+          list:[{ex:"bbbench",sets:Y2},{ex:"incline",sets:Y2},{ex:"fly",sets:Y2},
+                {ex:"concurl",sets:Y2},{ex:"hammercurl",sets:Y2},
+                {ex:"pushdown",sets:Y2},{ex:"ezext",sets:Y2}]},
+      D2:{focus:"Quads, Hamstrings & Calves",
+          note:"p.118: alternates leg curl and SLDL each workout. Lower body reps cycle 8–10 / 15–20.",
+          list:[{ex:"legext",sets:YL},
+                {alt:["legpress","hacksquat"],sets:YL},
+                {ex:"squat",sets:YL},
+                {alt:["legcurl","sldl"],sets:YL},
+                {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
+      D4:{focus:"Back & Deltoids",
+          list:[{ex:"pullover",sets:Y2},{ex:"pulldown",sets:Y2},{ex:"row",sets:Y2},
+                {ex:"chins",sets:Y2},{ex:"bbrow",sets:Y2},
+                {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
+                {alt:["bentlat","revfly"],sets:Y2}]}
+    }
+  },
+  yates_natural:{
+    name:"Yates Natural Adaptation",
+    source:"Adapted from Yates, Blood and Guts (1993). Stretched rest cycle, limited beyond-failure work. Not Yates-authored.",
+    adapted:true, rotation:["D1","D2","D4"],
+    rest:{interSession:[1,3],perCode:[7,9],primary:"perCode"},
+    days:{
+      D1:{focus:"Chest, Biceps & Triceps",
+          list:[{ex:"bbbench",sets:Y2},{ex:"incline",sets:Y2},{ex:"fly",sets:Y2},
+                {ex:"concurl",sets:Y2},{ex:"hammercurl",sets:Y2},
+                {ex:"pushdown",sets:Y2},{ex:"ezext",sets:Y2}]},
+      D2:{focus:"Quads, Hamstrings & Calves",
+          note:"Lower body reps cycle 8–10 / 15–20.",
+          list:[{ex:"legext",sets:YL},
+                {alt:["legpress","hacksquat"],sets:YL},
+                {ex:"squat",sets:YL},
+                {alt:["legcurl","sldl"],sets:YL},
+                {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
+      D4:{focus:"Back & Deltoids",
+          list:[{ex:"pullover",sets:Y2},{ex:"pulldown",sets:Y2},{ex:"row",sets:Y2},
+                {ex:"chins",sets:Y2},{ex:"bbrow",sets:Y2},
+                {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
+                {alt:["bentlat","revfly"],sets:Y2}]}
+    }
+  },
+  perez:{
+    name:"Perez 4-Workout",
+    source:"Split per Perez, movements from Yates Blood and Guts (1993) p.114. All defaults pending confirmation.",
+    adapted:true, rotation:["A","B","C","D"],
+    rest:{interSession:[1,2],perCode:[7,7],primary:"perCode"},
+    days:{
+      A:{focus:"Chest & Biceps",
+         list:[{ex:"bbbench",sets:P2},{ex:"incline",sets:P2},{ex:"fly",sets:P2},
+               {ex:"concurl",sets:P2},{ex:"hammercurl",sets:P2}]},
+      B:{focus:"Back & Abs",note:"Chins and rows hit biceps ~24h after A. The perGroup interval surfaces this.",
+         list:[{ex:"pullover",sets:P2},{ex:"pulldown",sets:P2},{ex:"row",sets:P2},
+               {ex:"bbrow",sets:P2},{ex:"chins",sets:P2},
+               {ex:"crunch",sets:P2},{ex:"hangleg",sets:P2}]},
+      C:{focus:"Legs",note:"Alternates leg curl and SLDL each workout (sourced from Yates p.118).",
+         list:[{ex:"legext",sets:P2},{alt:["legpress","hacksquat"],sets:P2},
+               {ex:"squat",sets:P2},{alt:["legcurl","sldl"],sets:P2},
+               {ex:"stdcalf",sets:P2},{ex:"calf",sets:P2}]},
+      D:{focus:"Shoulders, Traps & Triceps",note:"Traps slot (shrug) is not sourced from Yates — filled from general practice.",
+         list:[{ex:"pbn",sets:P2},{ex:"lateral",sets:P2},
+               {alt:["bentlat","revfly"],sets:P2},{ex:"shrug",sets:P2},
+               {ex:"pushdown",sets:P2},{ex:"ezext",sets:P2}]}
+    }
+  }
+};
+
 const DEFAULT_PROGRAM = {
   A:{focus:"Chest & Back",     list:["fly","incline","flat","pullover","pulldown","row","deadlift"]},
   B:{focus:"Legs & Abs",       list:["legext",{alt:["legpress","squat"]},"legcurl",{alt:["donkey","calf"]},"abs"]},
   C:{focus:"Shoulders & Arms", list:["lateral","revfly","curl","bbcurl","pushdown","dips","facepull"]}
 };
-const ORDER = ["A","B","C"];
-const TARGET_DAYS = 24;
 
 /* ---------------- storage ---------------- */
 const KEY_V2 = "hitlog.v2";
@@ -365,7 +515,9 @@ const HAS_LS = (function(){ try{ localStorage.setItem("__t","1"); localStorage.r
 
 function blank(){
   var p = JSON.parse(JSON.stringify(DEFAULT_PROGRAM));
-  return {schema:3, instances:{i1:{source:"persyn",name:"Persyn 3-Workout",edited:false,program:p}},
+  return {schema:3, instances:{i1:{source:"persyn",name:"Persyn 3-Workout",edited:false,
+          rotation:["A","B","C"],rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
+          program:p}},
           active:"i1", sessions:[], draft:null, custom:{}, baselines:{}};
 }
 
@@ -385,7 +537,9 @@ function migrateV2(d){
   var draft = d && d.draft ? Object.assign({}, d.draft, {instance: d.draft.instance || "i1"}) : null;
   if(draft){ draft.sets.forEach(function(x){ if(!x.endedWith){ x.endedWith = (x.failure === "Yes" || !x.failure) ? "clean" : "short"; } }); }
   return {schema:3,
-    instances:{i1:{source:"persyn", name:"Persyn 3-Workout", edited:isEdited, program:p}},
+    instances:{i1:{source:"persyn", name:"Persyn 3-Workout", edited:isEdited,
+      rotation:["A","B","C"], rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
+      program:p}},
     active:"i1", sessions:sessions, draft:draft,
     custom:(d && d.custom) || {}, baselines:(d && d.baselines) || {}};
 }
@@ -406,6 +560,12 @@ function load(){
   if(!d.custom) d.custom = {};
   if(!d.sessions) d.sessions = [];
   if(!d.baselines){ d.baselines = {}; for(var k in LEGACY_BASELINES) d.baselines[k] = JSON.parse(JSON.stringify(LEGACY_BASELINES[k])); }
+  /* backfill rotation/rest for v3 instances created before step 4 */
+  for(var ik in d.instances){ if(!d.instances[ik].rotation){
+    var tmpl = TEMPLATES[d.instances[ik].source];
+    d.instances[ik].rotation = tmpl ? tmpl.rotation.slice() : ["A","B","C"];
+    d.instances[ik].rest = tmpl ? JSON.parse(JSON.stringify(tmpl.rest)) : {interSession:[6,8],perCode:[18,24],primary:"perCode"};
+  }}
   if(!d.dateMigrated && d.sessions && d.sessions.length){
     d.sessions.forEach(function(s){
       var dt = new Date(s.date + 'T12:00:00');
@@ -424,6 +584,29 @@ let S = load();
 /** Shorthand for the active instance's program object. */
 function prog(){ return S.instances[S.active].program; }
 function markEdited(){ S.instances[S.active].edited = true; }
+
+/* ---- dynamic rotation / rest (replaces ORDER and TARGET_DAYS) ---- */
+function rotation(){ return S.instances[S.active].rotation || ["A","B","C"]; }
+function restSpec(){ return S.instances[S.active].rest || {interSession:[6,8],perCode:[18,24],primary:"perCode"}; }
+function targetDays(){ var r = restSpec(), b = r[r.primary]; return b ? b[1] : 24; }
+
+/* ---- multi-set slot helpers ---- */
+function normalizeSlot(it, cycle){
+  var defs = [{role:"top",scheme:"failure",progression:"double"}];
+  if(typeof it === "string") return {ex:it, sets:defs};
+  if(it.alt && !it.sets) return {ex:it.alt[cycle % it.alt.length], alt:it.alt, sets:defs};
+  var exId = it.ex || (it.alt ? it.alt[cycle % it.alt.length] : null);
+  return {ex:exId, alt:it.alt, sets:it.sets || defs, link:it.link};
+}
+function resolveSlots(code, cycle){
+  return prog()[code].list.map(function(it){ return normalizeSlot(it, cycle); });
+}
+function slotSetsNeeded(d, id){
+  return d.slotMap && d.slotMap[id] ? d.slotMap[id].sets.length : 1;
+}
+function slotsLogged(d, id){
+  return d.sets.filter(function(s){ return s.ex === id; }).length;
+}
 
 /* ---------------- helpers ---------------- */
 function today(){
@@ -489,7 +672,7 @@ function bestFor(id){
     var m = b.set.match(/(\d+)\s*x\s*([\d.]+)/i);
     if(m) better(+m[1], +m[2], e1rm(+m[1], +m[2], e.mult), b.date, true);
   }
-  setsFor(id).forEach(function(x){ if(endedClean(x)) better(x.reps, x.weight, x.e1, x.date, false); });
+  setsFor(id).forEach(function(x){ if(endedClean(x) && (!x.role || x.role === "top")) better(x.reps, x.weight, x.e1, x.date, false); });
   return best;
 }
 /** DOUBLE PROGRESSION: target derives from the PR (best set), not the last set. */
@@ -508,19 +691,25 @@ function lastGroupDate(g){
 }
 function focusOf(c){ return prog()[c].focus; }
 function nextWorkout(){
+  var rot = rotation();
   var done = S.sessions.filter(function(s){ return s.sets.length && s.instance === S.active; });
-  if(!done.length) return {code:"A", cycle:0};
-  var code = ORDER[(ORDER.indexOf(done[done.length-1].workout) + 1) % 3];
+  if(!done.length) return {code:rot[0], cycle:0};
+  var last = done[done.length-1].workout;
+  var code = rot[(rot.indexOf(last) + 1) % rot.length];
   return {code:code, cycle:done.filter(function(s){ return s.workout === code; }).length};
 }
 function resolveList(code, cycle){
-  return prog()[code].list.map(function(it){ return typeof it === "string" ? it : it.alt[cycle % 2]; });
+  return prog()[code].list.map(function(it){
+    if(typeof it === "string") return it;
+    if(it.alt) return it.alt[cycle % it.alt.length];
+    return it.ex;
+  });
 }
 function altPartner(code, cycle, id){
   var list = prog()[code].list;
   for(var i=0;i<list.length;i++){
     var it = list[i];
-    if(typeof it === "object" && it.alt.indexOf(id) > -1) return it.alt.filter(function(x){ return x !== id; })[0];
+    if(typeof it === "object" && it.alt && it.alt.indexOf(id) > -1) return it.alt.filter(function(x){ return x !== id; })[0];
   }
   return null;
 }
@@ -536,8 +725,21 @@ var tab = "today", open_ = null, pick = null, adding = false, editWO = null, add
 var entry = {};
 function entryFor(id, force){
   if(!entry[id] || force){
+    var d = S.draft;
+    var setNum = d ? slotsLogged(d, id) : 0;
+    var slotDef = d && d.slotMap && d.slotMap[id] ? d.slotMap[id] : null;
+    var setDef = slotDef && slotDef.sets[setNum] ? slotDef.sets[setNum] : {role:"top"};
+    var isFollow = setDef.progression === "follow";
     var t = targetFor(id);
-    entry[id] = {weight: t.weight === null ? "" : t.weight, reps:t.reps, endedWith:"clean", note:""};
+    var weight = t.weight, reps = t.reps;
+    if(isFollow && d){
+      var topLogged = d.sets.filter(function(s){ return s.ex === id && (!s.role || s.role === "top"); })[0];
+      if(topLogged && setDef.loadFactor) weight = Math.round(topLogged.weight * setDef.loadFactor);
+      else if(topLogged) weight = topLogged.weight;
+      var e = exOf(id); reps = e ? range(e)[0] : reps;
+    }
+    entry[id] = {weight: weight === null ? "" : weight, reps:reps, endedWith:"clean", note:"",
+                 setNum:setNum, role:setDef.role || "top"};
   }
   return entry[id];
 }
@@ -554,14 +756,15 @@ function viewToday(){
 
   var groups = [], seen = {};
   var A = allEx(); for(var k in A){ if(!seen[A[k].g]){ seen[A[k].g] = 1; groups.push(A[k].g); } }
+  var td = targetDays();
   var chips = groups.map(function(g){
     var ld = lastGroupDate(g), n = ld ? daysBetween(ld, today()) : null;
-    var cls = n === null ? "none" : n > TARGET_DAYS ? "over" : n >= TARGET_DAYS*0.75 ? "due" : "ok";
+    var cls = n === null ? "none" : n > td ? "over" : n >= td*0.75 ? "due" : "ok";
     return '<div class="chip '+cls+'"><div class="g">'+esc(g)+'</div><div class="d">'+(n === null ? "&mdash;" : n+"d")+'</div></div>';
   }).join("");
 
   return '<div class="seg-h">Today I am doing</div>'
-    + '<div class="seg">' + ORDER.map(function(c){
+    + '<div class="seg">' + rotation().map(function(c){
         return '<button aria-pressed="'+(c === code)+'" onclick="pick=\''+c+'\';render()">'
              + '<span class="l">'+c+'</span><span class="f">'+esc(focusOf(c))+'</span></button>'; }).join("") + '</div>'
     + '<section class="hero">'
@@ -571,13 +774,13 @@ function viewToday(){
     + '<div class="meta">'+(since === null ? "not yet logged" : since+" days since "+code)+' &middot; '+resolveList(code, cycle).length+' exercises</div>'
     + '</div></div>'
     + '<button class="btn-start" onclick="startSession(\''+code+'\','+cycle+')">Start workout '+code+'</button></section>'
-    + '<div class="sec-h">Days since trained &middot; target '+TARGET_DAYS+'</div>'
+    + '<div class="sec-h">Days since trained &middot; target '+td+'</div>'
     + '<div class="ready">'+chips+'</div>';
 }
 
 function viewSession(d){
   var cards = d.order.map(function(id, i){ return card(d, id, i); }).join("");
-  var remaining = d.order.filter(function(id){ return !d.sets.some(function(s){ return s.ex === id; }); }).length;
+  var remaining = d.order.filter(function(id){ return slotsLogged(d, id) < slotSetsNeeded(d, id); }).length;
   var A = allEx();
   var pool = Object.keys(A).filter(function(x){ return d.order.indexOf(x) === -1; });
   return '<section class="hero"><div class="eyebrow">In progress &middot; '+fmtDate(d.date)+'</div>'
@@ -600,17 +803,22 @@ function viewSession(d){
 function card(d, id, i){
   var e = exOf(id); if(!e) return "";
   var logged = d.sets.filter(function(s){ return s.ex === id; });
-  var isOpen = open_ === id;
+  var needed = slotSetsNeeded(d, id);
+  var allDone = logged.length >= needed;
+  var partialDone = logged.length > 0 && !allDone;
+  var isOpen = open_ === id || partialDone;
   var r = range(e), lo = r[0], hi = r[1];
 
-  if(logged.length && !isOpen){
-    var s = logged[logged.length-1];
-    var sew = s.endedWith || (s.failure === "Yes" ? "clean" : "short");
-    var ewTag = sew !== "clean" ? ' · '+sew : '';
+  if(allDone && open_ !== id){
+    var topSet = logged.filter(function(s){ return !s.role || s.role === "top"; })[0] || logged[0];
+    var sew = topSet.endedWith || "clean";
+    var summ = logged.length > 1
+      ? logged.map(function(s){ return s.reps+'&times;'+s.weight; }).join(' / ')+suffix(e)
+      : topSet.reps+' &times; '+topSet.weight+suffix(e)+(sew !== "clean" ? ' · '+sew : '');
     return '<article class="card done"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">&#10003;</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
-      + '<span class="r">'+s.reps+' &times; '+s.weight+suffix(e)+ewTag+'</span></span>'
-      + (sew === "clean" && s.reps >= hi ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
+      + '<span class="r">'+summ+'</span></span>'
+      + (sew === "clean" && topSet.reps >= hi ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
       + '</button></article>';
   }
 
@@ -655,14 +863,26 @@ function card(d, id, i){
       + (t.pr.seeded ? 'archived ' : '')+fmtDate(t.pr.date)+'</span></div>';
   }
 
+  /* Multi-set: show logged sets for partial progress */
+  var loggedHtml = '';
+  if(logged.length > 0){
+    loggedHtml = logged.map(function(s,si){
+      return '<div class="lastline"><span>Set '+(si+1)+': <b>'+s.reps+' &times; '+s.weight+suffix(e)+'</b>'
+        +(s.endedWith && s.endedWith !== "clean" ? ' ('+s.endedWith+')' : '')+'</span><span>&#10003;</span></div>';
+    }).join("");
+  }
+  var setLabel = needed > 1 ? '<div class="targline" style="font-size:13px;color:var(--txt-2)">Set '+(logged.length+1)+' of '+needed
+    +(st.role === "working" ? ' &middot; working set' : ' &middot; top set')+'</div>' : '';
+
   return '<article class="card open"><button class="chead" onclick="toggle(\''+id+'\')">'
     + '<span class="rtile">'+(i+1)+'</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
     + '<span class="r">'+esc(e.rr)+' reps &middot; '+esc(e.unit)+'</span></span></button>'
     + '<div class="cbody">'
-    + (t.bumped ? '<div class="bump">You hit <b>'+t.pr.reps+'</b> reps at your PR - top of the '+esc(e.rr)
+    + loggedHtml + setLabel
+    + (t.bumped && !partialDone ? '<div class="bump">You hit <b>'+t.pr.reps+'</b> reps at your PR - top of the '+esc(e.rr)
         + ' range. Weight moves <b>'+t.pr.weight+' &rarr; '+t.weight+'</b>, reps reset to <b>'+lo+'</b>.</div>' : '')
-    + infoLines
-    + '<div class="targline">Target: '+(t.weight === null ? (t.bwEx ? t.reps+' reps (enter weight)' : 'your call') : t.reps+' &times; '+t.weight+suffix(e))+'</div>'
+    + (st.role !== "working" ? infoLines : '')
+    + '<div class="targline">Target: '+(st.role === "working" ? reps+' &times; '+st.weight+suffix(e)+' (follow)' : t.weight === null ? (t.bwEx ? t.reps+' reps (enter weight)' : 'your call') : t.reps+' &times; '+t.weight+suffix(e))+'</div>'
     + '<div class="track'+(atTop ? ' hit' : '')+'">'
     + '<div class="fill" style="width:'+pctOf(reps)+'%"></div>'
     + '<div class="tgt" style="left:'+pctOf(t.reps)+'%" data-l="'+t.reps+'"></div>'
@@ -683,7 +903,8 @@ function card(d, id, i){
         return '<button aria-pressed="'+(st.endedWith === ew.v)+'" onclick="setv(\''+id+'\',\'endedWith\',\''+ew.v+'\')">'
              + ew.l+'</button>'; }).join("") + '</div>'
     + '<textarea class="note-in" rows="2" placeholder="'+(e.warn ? esc(e.warn) : "Notes")+'" oninput="setv(\''+id+'\',\'note\',this.value)">'+esc(st.note)+'</textarea>'
-    + '<button class="btn-log'+(atTop ? ' top' : '')+'" onclick="commit(\''+id+'\')">'+(atTop ? "Log - top of range" : "Log set")+'</button>'
+    + '<button class="btn-log'+(atTop && st.role !== "working" ? ' top' : '')+'" onclick="commit(\''+id+'\')">'
+    +(needed > 1 ? 'Log set '+(logged.length+1)+' of '+needed : atTop ? "Log - top of range" : "Log set")+'</button>'
     + '<div class="mini-row">'
     + (partner ? '<button class="mini" onclick="swapAlt(\''+id+'\',\''+partner+'\')">Swap to '+esc(exOf(partner).n)+'</button>' : '')
     + '<button class="mini warn" onclick="dropToday(\''+id+'\')">Remove from today</button></div>'
@@ -698,7 +919,7 @@ function viewHistory(){
     var prev = rev.slice(i+1).filter(function(x){ return x.workout === s.workout; })[0];
     var gap = prev ? daysBetween(prev.date, s.date) : null;
     return '<article class="sess"><button class="sh" onclick="this.parentNode.querySelector(\'.body\').classList.toggle(\'hide\')">'
-      + '<span class="wl '+s.workout+'">'+s.workout+'</span><span class="sd"><span class="dt">'+fmtDate(s.date)+'</span>'
+      + '<span class="wl" style="'+wlStyle(s.workout)+'">'+s.workout+'</span><span class="sd"><span class="dt">'+fmtDate(s.date)+'</span>'
       + '<span class="mm">'+esc(focusOf(s.workout))+' &middot; '+s.sets.length+' sets'+(gap !== null ? ' &middot; '+gap+'d gap' : '')+'</span></span></button>'
       + '<div class="body'+(i === 0 ? '' : ' hide')+'">'
       + s.sets.map(function(x){ var e = exOf(x.ex);
@@ -729,18 +950,44 @@ function viewRecords(){
 }
 
 /* ============================================================ PROGRAM */
+function slotLabel(it){
+  if(typeof it === "string"){ var e = exOf(it); return e ? e.n : it; }
+  if(it.alt) return it.alt.map(function(x){ var e = exOf(x); return e ? e.n : x; }).join("  /  ");
+  if(it.ex){ var e2 = exOf(it.ex); return e2 ? e2.n : it.ex; }
+  return "?";
+}
+function slotSub(it){
+  if(typeof it === "string"){ var e = exOf(it); return e ? e.g+" · "+e.rr+" reps" : "unknown"; }
+  if(it.alt) return "alternates by cycle"+(it.sets && it.sets.length > 1 ? " · "+it.sets.length+" sets" : "");
+  if(it.ex){ var e2 = exOf(it.ex); var extra = it.sets && it.sets.length > 1 ? " · "+it.sets.length+" sets" : "";
+    return e2 ? e2.g+" · "+(it.sets && it.sets[0] && it.sets[0].rr ? it.sets[0].rr : e2.rr)+" reps"+extra : "unknown"; }
+  return "";
+}
 function viewData(){
+  var inst = S.instances[S.active];
+  var rot = rotation();
+  var tmpl = TEMPLATES[inst.source];
   var nSets = S.sessions.reduce(function(a,s){ return a + s.sets.length; }, 0);
-  var progHtml = ORDER.map(function(c){
+
+  /* Instance switcher (if multiple instances) */
+  var instKeys = Object.keys(S.instances);
+  var instPicker = instKeys.length > 1
+    ? '<div class="seg" style="margin-bottom:14px">' + instKeys.map(function(k){
+        return '<button aria-pressed="'+(k === S.active)+'" onclick="switchInstance(\''+k+'\')">'
+             + '<span class="f">'+esc(S.instances[k].name)+'</span></button>';
+      }).join("") + '</div>' : '';
+
+  /* Adapted notice */
+  var notice = tmpl && tmpl.adapted
+    ? '<div class="bump" style="margin-bottom:14px"><b>Adapted.</b> '+esc(tmpl.source)+'</div>' : '';
+
+  var progHtml = rot.map(function(c){
     var open = editWO === c, items = prog()[c].list;
     return '<div class="wo-edit"><button class="h" onclick="editWO='+(open ? 'null' : "'"+c+"'")+';addTo=null;newForm=false;render()">'
-      + '<span class="l '+c+'">'+c+'</span><span class="t">'+esc(prog()[c].focus)+'</span>'
+      + '<span class="l" style="'+wlStyle(c)+'">'+c+'</span><span class="t">'+esc(prog()[c].focus)+'</span>'
       + '<span class="c">'+items.length+' &middot; '+(open ? '&#9650;' : '&#9660;')+'</span></button>'
       + (open ? '<div class="list">' + items.map(function(it, i){
-          var isAlt = typeof it === "object";
-          var nm = isAlt ? it.alt.map(function(x){ return exOf(x) ? exOf(x).n : x; }).join("  /  ") : (exOf(it) ? exOf(it).n : it);
-          var sub = isAlt ? "alternates by cycle" : (exOf(it) ? exOf(it).g+" &middot; "+exOf(it).rr+" reps" : "unknown");
-          return '<div class="erow"><span class="en">'+esc(nm)+'<small>'+sub+'</small></span>'
+          return '<div class="erow"><span class="en">'+esc(slotLabel(it))+'<small>'+slotSub(it)+'</small></span>'
             + '<button class="mv" onclick="move(\''+c+'\','+i+',-1)" aria-label="move up"'+(i === 0 ? ' disabled' : '')+'>&uarr;</button>'
             + '<button class="mv" onclick="move(\''+c+'\','+i+',1)" aria-label="move down"'+(i === items.length-1 ? ' disabled' : '')+'>&darr;</button>'
             + '<button class="rm" onclick="removeEx(\''+c+'\','+i+')" aria-label="remove">&times;</button></div>';
@@ -750,10 +997,18 @@ function viewData(){
       + '</div>';
   }).join("");
 
-  return '<div class="panel"><h3>Program</h3>'
-    + '<p>One session per week, every Tuesday. A &rarr; B &rarr; C &rarr; A. Tap a workout to add, remove or reorder movements.</p>'
+  /* Template picker */
+  var tplHtml = Object.keys(TEMPLATES).map(function(tid){
+    var t = TEMPLATES[tid];
+    return '<button class="opt" onclick="createInstance(\''+tid+'\')">'+esc(t.name)
+      + '<small>'+t.rotation.length+' workouts &middot; '+(t.adapted ? 'adapted' : 'as published')+'</small></button>';
+  }).join("");
+
+  return instPicker + notice
+    + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
+    + '<p>'+rot.join(' &rarr; ')+' rotation. Tap a workout to add, remove or reorder movements.</p>'
     + progHtml
-    + '<button class="btn-o" onclick="resetProgram()">Reset program to default</button></div>'
+    + '<button class="btn-o" onclick="resetProgram()">Reset to source template</button></div>'
     + '<div class="panel"><h3>Storage</h3><p>'
     + (HAS_LS
         ? 'Saved on this device. '+S.sessions.length+' session'+(S.sessions.length === 1 ? '' : 's')+', '+nSets+' sets. Nothing leaves your phone.'
@@ -768,17 +1023,17 @@ function viewData(){
     + '<input type="file" id="blImp" accept="application/json" class="hide" onchange="importBaselines(this)">'
     + '<button class="btn-o" onclick="exportBaselines()">Export baselines</button>'
     + '<button class="btn-o danger" onclick="wipe()">Erase all sessions</button></div>'
-    + '<div class="panel"><h3>Standing rules</h3><p style="margin:0">'
-    + 'One working set per exercise, to true concentric failure. Warm-ups are not logged.<br><br>'
-    + 'Never superset the incline press.<br><br>'
-    + 'Double progression: meet or beat the top of the rep range and the weight goes up one increment next session, reps reset to the bottom.<br><br>'
-    + 'Hold intake steady for the first three cycles so schedule effects do not get confounded with deficit depth.</p></div>';
+    + '<div class="panel"><h3>Start a new program</h3>'
+    + '<p>Pick a template. Your current program and all sessions are kept.</p>'
+    + tplHtml + '</div>';
 }
 
 function pickerFor(c){
   var A = allEx(), used = {};
   prog()[c].list.forEach(function(it){
-    if(typeof it === "object") it.alt.forEach(function(x){ used[x] = 1; }); else used[it] = 1;
+    if(typeof it === "string") used[it] = 1;
+    else if(it.alt) it.alt.forEach(function(x){ used[x] = 1; });
+    else if(it.ex) used[it.ex] = 1;
   });
   var pool = Object.keys(A).filter(function(x){ return !used[x]; });
   if(newForm){
@@ -820,11 +1075,20 @@ function commit(id){
   if(!weight || weight <= 0) return toast("Enter a weight first");
   var hi = range(e)[1];
   var ew = st.endedWith;
+  var role = st.role || "top";
   S.draft.sets.push({ex:id, reps:reps, weight:weight, endedWith:ew, note:st.note || "",
-                     e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult, t:new Date().toISOString()});
+                     e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult, t:new Date().toISOString(),
+                     role:role, setNum:st.setNum || 0});
   save();
-  if(ew !== "clean"){
-    toast("Logged "+reps+" × "+weight+" ("+ew+" — won’t move target)");
+  var needed = slotSetsNeeded(S.draft, id);
+  var logged = slotsLogged(S.draft, id);
+  if(logged < needed){
+    delete entry[id]; entryFor(id, true);
+    toast("Set "+logged+" of "+needed+" logged");
+    render(); return;
+  }
+  if(ew !== "clean" || role === "working"){
+    toast("Logged "+reps+" × "+weight+(ew !== "clean" ? " ("+ew+" — won’t move target)" : ""));
   } else {
     toast(reps >= hi ? "Top of range - "+bumpWeight(weight, e)+" lb next time" : "Logged - "+reps+" x "+weight, reps >= hi);
   }
@@ -833,7 +1097,21 @@ function commit(id){
 function startSession(code, cycle){
   var prevBW = null;
   for(var i = S.sessions.length - 1; i >= 0; i--){ if(S.sessions[i].bodyweight != null){ prevBW = S.sessions[i].bodyweight; break; } }
-  S.draft = {date:today(), workout:code, cycle:cycle, sets:[], order:resolveList(code, cycle), bodyweight:prevBW, instance:S.active};
+  var slots = resolveSlots(code, cycle);
+  var sm = {};
+  slots.forEach(function(s){
+    var resolved = s.sets.map(function(sd){
+      var rr = sd.rrAlt ? sd.rrAlt[cycle % sd.rrAlt.length] : sd.rr;
+      var out = {role:sd.role || "top"};
+      if(sd.progression) out.progression = sd.progression;
+      if(sd.loadFactor) out.loadFactor = sd.loadFactor;
+      if(rr) out.rr = rr;
+      return out;
+    });
+    sm[s.ex] = {sets:resolved, link:s.link};
+  });
+  S.draft = {date:today(), workout:code, cycle:cycle, sets:[], order:slots.map(function(s){ return s.ex; }),
+             slotMap:sm, bodyweight:prevBW, instance:S.active};
   pick = null; save(); render();
 }
 function finishSession(){
@@ -874,10 +1152,31 @@ function createEx(c){
   prog()[c].list.push(id); markEdited(); newForm = false; addTo = null; save(); toast(n + " added"); render();
 }
 function resetProgram(){
-  if(!confirm("Reset all workouts to the source template? Logged sessions are kept.")) return;
-  S.instances[S.active].program = JSON.parse(JSON.stringify(DEFAULT_PROGRAM));
-  S.instances[S.active].edited = false;
+  var inst = S.instances[S.active];
+  var t = TEMPLATES[inst.source];
+  if(!t){ toast("Source template not found"); return; }
+  if(!confirm("Reset all workouts to the "+t.name+" template? Logged sessions are kept.")) return;
+  inst.program = JSON.parse(JSON.stringify(t.days));
+  inst.rotation = t.rotation.slice();
+  inst.rest = JSON.parse(JSON.stringify(t.rest));
+  inst.edited = false;
   save(); toast("Program reset"); render();
+}
+function createInstance(templateId){
+  var t = TEMPLATES[templateId]; if(!t) return;
+  if(S.draft){ toast("Finish your session first"); return; }
+  var id = "i" + Date.now().toString(36);
+  S.instances[id] = {source:templateId, name:t.name, edited:false,
+    rotation:t.rotation.slice(), rest:JSON.parse(JSON.stringify(t.rest)),
+    program:JSON.parse(JSON.stringify(t.days))};
+  S.active = id; pick = null; editWO = null;
+  save(); toast(t.name+" started"); tab = "today"; render();
+}
+function switchInstance(id){
+  if(!S.instances[id]) return;
+  if(S.draft){ toast("Finish your session first"); return; }
+  S.active = id; pick = null; editWO = null;
+  save(); render();
 }
 function exportJSON(){
   var A = allEx(), lib = {};
