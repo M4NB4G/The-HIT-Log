@@ -53,13 +53,25 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 /* ---- segmented button (workout picker) ---- */
 .seg-h{font-size:13px;color:var(--txt-2);margin:4px 0 10px;font-weight:500}
 .seg{display:flex;border:1px solid var(--outline);border-radius:100px;overflow:hidden;margin-bottom:18px;background:var(--surface)}
-.seg button{flex:1;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:1px;border-right:1px solid var(--outline);padding:6px 4px;color:var(--txt-2)}
+.seg button{flex:1;min-width:0;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;border-right:1px solid var(--outline);padding:7px 5px;color:var(--txt-2)}
 .seg button:last-child{border-right:none}
 .seg button .l{font-weight:600;font-size:16px}
-.seg button .f{font-size:10px;color:var(--txt-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+/* Focus labels wrap to two lines rather than truncating. A four-workout
+   rotation on a phone gives each button ~80px, which "Shoulders & Triceps"
+   does not fit on one line. */
+.seg button .f{font-size:10px;line-height:1.2;color:var(--txt-3);text-align:center;max-width:100%;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .seg button[aria-pressed="true"]{background:var(--accent-c);color:var(--accent-on)}
 .seg button[aria-pressed="true"] .f{color:var(--accent-on);opacity:.8}
+
+/* Session-clock readout under the hero. Note the states mean the opposite of
+   the body-part chips: sitting inside the window is the GOOD state here
+   (time to train), whereas a body part inside its window is merely due. */
+.dueline{margin-top:14px;padding:9px 13px;border-radius:100px;font-size:12.5px;font-weight:500;
+  background:var(--surface-2);color:var(--txt-2);text-align:center}
+.dueline.ready{background:var(--green-c);color:var(--green-on)}
+.dueline.late{background:var(--amber-c);color:var(--amber-on)}
 
 /* ---- hero card ---- */
 .hero{background:var(--surface);border-radius:var(--r);box-shadow:var(--e1);padding:18px;margin-bottom:16px}
@@ -191,6 +203,36 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .panel{background:var(--surface);border-radius:var(--r);box-shadow:var(--e1);padding:18px;margin-bottom:12px}
 .panel h3{margin:0 0 5px;font-size:15px;font-weight:500;color:var(--txt)}
 .panel p{margin:0 0 14px;font-size:13px;color:var(--txt-2);line-height:1.55}
+
+/* Instance switcher. Was reusing .seg, which is built for short codes and
+   truncates full program names to unreadable stubs. These wrap instead. */
+.inst{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.inst button{flex:1 1 auto;min-height:42px;padding:8px 16px;border-radius:100px;font-size:13px;font-weight:500;
+  border:1px solid var(--outline);background:var(--surface);color:var(--txt-2);box-shadow:var(--e1)}
+.inst button[aria-pressed="true"]{background:var(--accent-c);color:var(--accent-on);border-color:transparent}
+
+/* Quiet source/attribution note. Deliberately not .bump — that is the amber
+   PR alert and shouting a citation in warning colours reads as an error. */
+.cite{border-left:3px solid var(--outline);padding:2px 0 2px 12px;margin-bottom:14px;
+  font-size:12px;line-height:1.55;color:var(--txt-3)}
+.cite b{color:var(--txt-2);font-weight:600}
+
+/* "How it runs" spec rows */
+.runs{display:flex;flex-direction:column;gap:9px;margin-bottom:14px}
+.runs .r{display:flex;gap:12px;font-size:12.5px;line-height:1.5}
+.runs .k{flex:0 0 96px;color:var(--txt-3)}
+.runs .v{flex:1;color:var(--txt-2)}
+
+/* Template cards. Previously emitted with class="opt", which is only styled
+   as a descendant of .picker, so outside one they rendered as bare text. */
+.tpl{display:block;width:100%;text-align:left;padding:14px;margin-bottom:8px;border-radius:14px;
+  border:1px solid var(--outline);background:var(--surface-2);color:var(--txt)}
+.tpl:active{background:var(--blue-c);border-color:var(--blue)}
+.tpl .n{font-size:14px;font-weight:500}
+.tpl .m{display:block;font-family:var(--mono);font-size:11px;color:var(--txt-3);margin-top:3px}
+.tpl .b{display:block;font-size:12px;color:var(--txt-2);line-height:1.5;margin-top:6px}
+.tpl.cur{border-color:var(--accent);background:var(--accent-c)}
+.tpl.cur .n{color:var(--accent-on)} .tpl.cur .m,.tpl.cur .b{color:var(--accent-on);opacity:.85}
 .btn-o{width:100%;min-height:46px;border-radius:100px;border:1px solid var(--outline);background:var(--surface);
   font-size:14px;color:var(--blue);margin-bottom:9px;font-weight:500}
 .btn-o:active{background:var(--blue-c)}
@@ -372,6 +414,8 @@ var P2 = [{role:"top",rr:"8-12"},{role:"working",progression:"follow",loadFactor
 const TEMPLATES = {
   persyn:{
     name:"Persyn 3-Workout",
+    blurb:"Mentzer's four-workout cycle compressed to three, so nothing waits three weeks to come around again.",
+    structure:"One all-out set per exercise, taken to failure. Double progression on reps, then weight.",
     source:"Adapted from Mentzer, High-Intensity Training the Mike Mentzer Way (2003), compressed from four workouts to three.",
     adapted:true, rotation:["A","B","C"],
     rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
@@ -383,109 +427,119 @@ const TEMPLATES = {
   },
   mentzer_ideal:{
     name:"Mentzer Ideal Routine",
+    blurb:"Mentzer's published four-workout cycle. Very low volume, very long rest, pre-exhaust pairs run back to back.",
+    structure:"One all-out set per exercise. Paired exercises run with no rest between them.",
     source:"Little & Mentzer, High-Intensity Training the Mike Mentzer Way (2003).",
-    adapted:false, rotation:["W1","W2","W3","W4"],
+    adapted:false, rotation:["A","B","C","D"],
     rest:{interSession:[4,7],perCode:[16,28],primary:"interSession"},
     days:{
-      W1:{focus:"Chest & Back",note:"Pre-exhaust pairs: flyes → incline press, pulldowns → pulldowns. No rest between paired exercises.",
-          list:[{ex:"fly",sets:[{role:"top",rr:"6-10"}],link:"preexhaust"},
-                {ex:"incline",sets:[{role:"top",rr:"1-3"}]},
-                {ex:"sapd",sets:[{role:"top",rr:"6-10"}],link:"preexhaust"},
-                {ex:"pulldown",sets:[{role:"top",rr:"6-10"}]},
-                {ex:"deadlift",sets:[{role:"top",rr:"6-10"}]}]},
-      W2:{focus:"Legs & Abs",
-          list:[{ex:"legext",sets:[{role:"top",rr:"12-20"}],link:"preexhaust"},
-                {ex:"legpress",sets:[{role:"top",rr:"12-20"}]},
-                {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]},
-                {ex:"situp",sets:[{role:"top",rr:"12-20"}]}]},
-      W3:{focus:"Shoulders & Arms",note:"Pre-exhaust: pushdowns → dips.",
-          list:[{ex:"lateral",sets:[{role:"top",rr:"6-10"}]},
-                {ex:"bentlat",sets:[{role:"top",rr:"6-10"}]},
-                {ex:"curl",sets:[{role:"top",rr:"6-10"}]},
-                {ex:"pushdown",sets:[{role:"top",rr:"6-10"}],link:"preexhaust"},
-                {ex:"dips",sets:[{role:"top",rr:"3-5"}]}]},
-      W4:{focus:"Legs & Abs (repeat)",
-          list:[{ex:"legext",sets:[{role:"top",rr:"12-20"}],link:"preexhaust"},
-                {ex:"legpress",sets:[{role:"top",rr:"12-20"}]},
-                {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]},
-                {ex:"situp",sets:[{role:"top",rr:"12-20"}]}]}
+      A:{focus:"Chest & Back",note:"Pre-exhaust pairs: flyes → incline press, pullovers → pulldowns. No rest between paired exercises.",
+         list:[{ex:"fly",sets:[{role:"top",rr:"6-10"}],link:"preexhaust"},
+               {ex:"incline",sets:[{role:"top",rr:"1-3"}]},
+               {ex:"sapd",sets:[{role:"top",rr:"6-10"}],link:"preexhaust"},
+               {ex:"pulldown",sets:[{role:"top",rr:"6-10"}]},
+               {ex:"deadlift",sets:[{role:"top",rr:"6-10"}]}]},
+      B:{focus:"Legs & Abs",note:"Pre-exhaust: leg extensions → leg press.",
+         list:[{ex:"legext",sets:[{role:"top",rr:"12-20"}],link:"preexhaust"},
+               {ex:"legpress",sets:[{role:"top",rr:"12-20"}]},
+               {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]},
+               {ex:"situp",sets:[{role:"top",rr:"12-20"}]}]},
+      C:{focus:"Shoulders & Arms",note:"Pre-exhaust: pushdowns → dips.",
+         list:[{ex:"lateral",sets:[{role:"top",rr:"6-10"}]},
+               {ex:"bentlat",sets:[{role:"top",rr:"6-10"}]},
+               {ex:"curl",sets:[{role:"top",rr:"6-10"}]},
+               {ex:"pushdown",sets:[{role:"top",rr:"6-10"}],link:"preexhaust"},
+               {ex:"dips",sets:[{role:"top",rr:"3-5"}]}]},
+      D:{focus:"Legs & Abs",note:"Same session as B. Legs come around twice per cycle.",
+         list:[{ex:"legext",sets:[{role:"top",rr:"12-20"}],link:"preexhaust"},
+               {ex:"legpress",sets:[{role:"top",rr:"12-20"}]},
+               {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]},
+               {ex:"situp",sets:[{role:"top",rr:"12-20"}]}]}
     }
   },
   mentzer_consolidation:{
     name:"Mentzer Consolidation",
+    blurb:"Mentzer's stripped-back cycle for stalled trainees: three compound exercises per workout, nothing else.",
+    structure:"One all-out set per exercise, three exercises per workout. Start at 5–6 days rest and stretch it as you get stronger.",
     source:"Little & Mentzer, High-Intensity Training the Mike Mentzer Way (2003). Start at 5–6 days rest, increase over time.",
-    adapted:false, rotation:["W1","W2"],
+    adapted:false, rotation:["A","B"],
     rest:{interSession:[5,6],perCode:[10,12],primary:"interSession"},
     days:{
-      W1:{focus:"Squat & Upper",note:"Swap squat for leg press occasionally. Substitution is permission to edit, not a strict alternation.",
-          list:[{alt:["bbsquat","legpress"],sets:[{role:"top",rr:"12-20"}]},
-                {ex:"pulldown",sets:[{role:"top",rr:"6-10"}]},
-                {ex:"dips",sets:[{role:"top",rr:"6-10"}]}]},
-      W2:{focus:"Deadlift & Upper",note:"Swap deadlift for shrug occasionally.",
-          list:[{alt:["deadlift","shrug"],sets:[{role:"top",rr:"6-10"}]},
-                {ex:"pbn",sets:[{role:"top",rr:"6-10"}]},
-                {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]}]}
+      A:{focus:"Squat & Upper",note:"Swap squat for leg press occasionally. Substitution is permission to edit, not a strict alternation.",
+         list:[{alt:["bbsquat","legpress"],sets:[{role:"top",rr:"12-20"}]},
+               {ex:"pulldown",sets:[{role:"top",rr:"6-10"}]},
+               {ex:"dips",sets:[{role:"top",rr:"6-10"}]}]},
+      B:{focus:"Deadlift & Upper",note:"Swap deadlift for shrug occasionally.",
+         list:[{alt:["deadlift","shrug"],sets:[{role:"top",rr:"6-10"}]},
+               {ex:"pbn",sets:[{role:"top",rr:"6-10"}]},
+               {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]}]}
     }
   },
   yates_bng:{
     name:"Yates Blood & Guts",
-    source:"Dorian Yates, Blood and Guts (1993). Split p.37, movements p.114, counts p.32, reps p.49.",
-    adapted:true, rotation:["D1","D2","D4"],
+    blurb:"Yates' three training days on a rolling cycle with rest days between. High frequency, high volume, short recovery.",
+    structure:"Warm-ups (not logged), then a top set to failure and a back-off set at 90% of that weight.",
+    source:"Dorian Yates, Blood and Guts (1993). Split p.37, movements p.114, counts p.32, reps p.49. Original day numbering was 1, 2 and 4 — day 3 is a rest day.",
+    adapted:true, rotation:["A","B","C"],
     rest:{interSession:[1,2],perCode:[5,7],primary:"perCode"},
     days:{
-      D1:{focus:"Chest, Biceps & Triceps",
-          note:"p.118: decline BB is superior for mid-low chest; most pec tears come from flat bench.",
-          list:[{ex:"bbbench",sets:Y2},{ex:"incline",sets:Y2},{ex:"fly",sets:Y2},
-                {ex:"concurl",sets:Y2},{ex:"hammercurl",sets:Y2},
-                {ex:"pushdown",sets:Y2},{ex:"ezext",sets:Y2}]},
-      D2:{focus:"Quads, Hamstrings & Calves",
-          note:"p.118: alternates leg curl and SLDL each workout. Lower body reps cycle 8–10 / 15–20.",
-          list:[{ex:"legext",sets:YL},
-                {alt:["legpress","hacksquat"],sets:YL},
-                {ex:"squat",sets:YL},
-                {alt:["legcurl","sldl"],sets:YL},
-                {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
-      D4:{focus:"Back & Deltoids",
-          list:[{ex:"pullover",sets:Y2},{ex:"pulldown",sets:Y2},{ex:"row",sets:Y2},
-                {ex:"chins",sets:Y2},{ex:"bbrow",sets:Y2},
-                {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
-                {alt:["bentlat","revfly"],sets:Y2}]}
+      A:{focus:"Chest, Biceps & Triceps",
+         note:"p.118: decline BB is superior for mid-low chest; most pec tears come from flat bench.",
+         list:[{ex:"bbbench",sets:Y2},{ex:"incline",sets:Y2},{ex:"fly",sets:Y2},
+               {ex:"concurl",sets:Y2},{ex:"hammercurl",sets:Y2},
+               {ex:"pushdown",sets:Y2},{ex:"ezext",sets:Y2}]},
+      B:{focus:"Quads, Hams & Calves",
+         note:"p.118: alternates leg curl and SLDL each workout. Lower body reps cycle 8–10 / 15–20.",
+         list:[{ex:"legext",sets:YL},
+               {alt:["legpress","hacksquat"],sets:YL},
+               {ex:"squat",sets:YL},
+               {alt:["legcurl","sldl"],sets:YL},
+               {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
+      C:{focus:"Back & Deltoids",
+         list:[{ex:"pullover",sets:Y2},{ex:"pulldown",sets:Y2},{ex:"row",sets:Y2},
+               {ex:"chins",sets:Y2},{ex:"bbrow",sets:Y2},
+               {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
+               {alt:["bentlat","revfly"],sets:Y2}]}
     }
   },
   yates_natural:{
     name:"Yates Natural Adaptation",
+    blurb:"Yates' split and movements on a longer rest cycle, without the beyond-failure work. Not Yates-authored.",
+    structure:"Warm-ups (not logged), then a top set to failure and a back-off set at 90% of that weight.",
     source:"Adapted from Yates, Blood and Guts (1993). Stretched rest cycle, limited beyond-failure work. Not Yates-authored.",
-    adapted:true, rotation:["D1","D2","D4"],
+    adapted:true, rotation:["A","B","C"],
     rest:{interSession:[1,3],perCode:[7,9],primary:"perCode"},
     days:{
-      D1:{focus:"Chest, Biceps & Triceps",
-          list:[{ex:"bbbench",sets:Y2},{ex:"incline",sets:Y2},{ex:"fly",sets:Y2},
-                {ex:"concurl",sets:Y2},{ex:"hammercurl",sets:Y2},
-                {ex:"pushdown",sets:Y2},{ex:"ezext",sets:Y2}]},
-      D2:{focus:"Quads, Hamstrings & Calves",
-          note:"Lower body reps cycle 8–10 / 15–20.",
-          list:[{ex:"legext",sets:YL},
-                {alt:["legpress","hacksquat"],sets:YL},
-                {ex:"squat",sets:YL},
-                {alt:["legcurl","sldl"],sets:YL},
-                {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
-      D4:{focus:"Back & Deltoids",
-          list:[{ex:"pullover",sets:Y2},{ex:"pulldown",sets:Y2},{ex:"row",sets:Y2},
-                {ex:"chins",sets:Y2},{ex:"bbrow",sets:Y2},
-                {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
-                {alt:["bentlat","revfly"],sets:Y2}]}
+      A:{focus:"Chest, Biceps & Triceps",
+         list:[{ex:"bbbench",sets:Y2},{ex:"incline",sets:Y2},{ex:"fly",sets:Y2},
+               {ex:"concurl",sets:Y2},{ex:"hammercurl",sets:Y2},
+               {ex:"pushdown",sets:Y2},{ex:"ezext",sets:Y2}]},
+      B:{focus:"Quads, Hams & Calves",
+         note:"Lower body reps cycle 8–10 / 15–20.",
+         list:[{ex:"legext",sets:YL},
+               {alt:["legpress","hacksquat"],sets:YL},
+               {ex:"squat",sets:YL},
+               {alt:["legcurl","sldl"],sets:YL},
+               {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
+      C:{focus:"Back & Deltoids",
+         list:[{ex:"pullover",sets:Y2},{ex:"pulldown",sets:Y2},{ex:"row",sets:Y2},
+               {ex:"chins",sets:Y2},{ex:"bbrow",sets:Y2},
+               {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
+               {alt:["bentlat","revfly"],sets:Y2}]}
     }
   },
   perez:{
     name:"Perez 4-Workout",
-    source:"Split per Perez, movements from Yates Blood and Guts (1993) p.114. All defaults pending confirmation.",
+    blurb:"Four workouts inside a week, so every body part comes around every seven days.",
+    structure:"Two heavy sets per exercise at 8–12 reps: a top set to failure, then a back-off set at 90% of that weight.",
+    source:"Split and schedule per Perez. Movement selection seeded from Yates, Blood and Guts (1993) p.114 — edit to taste.",
     adapted:true, rotation:["A","B","C","D"],
     rest:{interSession:[1,2],perCode:[7,7],primary:"perCode"},
     days:{
       A:{focus:"Chest & Biceps",
          list:[{ex:"bbbench",sets:P2},{ex:"incline",sets:P2},{ex:"fly",sets:P2},
                {ex:"concurl",sets:P2},{ex:"hammercurl",sets:P2}]},
-      B:{focus:"Back & Abs",note:"Chins and rows hit biceps ~24h after A. The perGroup interval surfaces this.",
+      B:{focus:"Back & Abs",note:"Chins and rows hit biceps ~24h after A. The days-since-trained chips surface this.",
          list:[{ex:"pullover",sets:P2},{ex:"pulldown",sets:P2},{ex:"row",sets:P2},
                {ex:"bbrow",sets:P2},{ex:"chins",sets:P2},
                {ex:"crunch",sets:P2},{ex:"hangleg",sets:P2}]},
@@ -493,7 +547,7 @@ const TEMPLATES = {
          list:[{ex:"legext",sets:P2},{alt:["legpress","hacksquat"],sets:P2},
                {ex:"squat",sets:P2},{alt:["legcurl","sldl"],sets:P2},
                {ex:"stdcalf",sets:P2},{ex:"calf",sets:P2}]},
-      D:{focus:"Shoulders, Traps & Triceps",note:"Traps slot (shrug) is not sourced from Yates — filled from general practice.",
+      D:{focus:"Shoulders & Triceps",note:"Traps are covered by the shrug slot, which is not sourced from Yates — filled from general practice.",
          list:[{ex:"pbn",sets:P2},{ex:"lateral",sets:P2},
                {alt:["bentlat","revfly"],sets:P2},{ex:"shrug",sets:P2},
                {ex:"pushdown",sets:P2},{ex:"ezext",sets:P2}]}
@@ -515,7 +569,12 @@ const HAS_LS = (function(){ try{ localStorage.setItem("__t","1"); localStorage.r
 
 function blank(){
   var p = JSON.parse(JSON.stringify(DEFAULT_PROGRAM));
-  return {schema:3, instances:{i1:{source:"persyn",name:"Persyn 3-Workout",edited:false,
+  /* dateMigrated is set here on purpose. The flag guards a one-time correction
+     for dates written by the old UTC-based today(); a state starting from
+     empty has no such dates. Leaving it unset made load() shift the first
+     session a fresh install logged back by a day. */
+  return {schema:3, dateMigrated:true,
+          instances:{i1:{source:"persyn",name:"Persyn 3-Workout",edited:false,
           rotation:["A","B","C"],rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
           program:p}},
           active:"i1", sessions:[], draft:null, custom:{}, baselines:{}};
@@ -544,6 +603,31 @@ function migrateV2(d){
     custom:(d && d.custom) || {}, baselines:(d && d.baselines) || {}};
 }
 
+/* Re-key one instance's workout codes to A, B, C, D... by rotation position,
+   carrying its logged sessions and any in-flight draft along. Returns true if
+   anything moved. Idempotent: an already-lettered instance is left alone. */
+function letterCodes(inst, d, instKey){
+  var rot = inst.rotation || [], map = {}, moved = false;
+  rot.forEach(function(c, i){
+    var L = String.fromCharCode(65 + i);
+    map[c] = L;
+    if(c !== L) moved = true;
+  });
+  if(!moved) return false;
+  var np = {};
+  /* Rotation order first, then anything left in program that rotation forgot,
+     so an orphaned day is never silently dropped. */
+  rot.forEach(function(c){ if(inst.program[c]) np[map[c]] = inst.program[c]; });
+  for(var k in inst.program){ if(!map[k] && !np[k]) np[k] = inst.program[k]; }
+  inst.program = np;
+  inst.rotation = rot.map(function(c){ return map[c]; });
+  (d.sessions || []).forEach(function(s){
+    if(s.instance === instKey && map[s.workout]) s.workout = map[s.workout];
+  });
+  if(d.draft && d.draft.instance === instKey && map[d.draft.workout]) d.draft.workout = map[d.draft.workout];
+  return true;
+}
+
 function load(){
   let d;
   if(!HAS_LS) d = mem || (mem = blank());
@@ -566,6 +650,11 @@ function load(){
     d.instances[ik].rotation = tmpl ? tmpl.rotation.slice() : ["A","B","C"];
     d.instances[ik].rest = tmpl ? JSON.parse(JSON.stringify(tmpl.rest)) : {interSession:[6,8],perCode:[18,24],primary:"perCode"};
   }}
+  /* Rename any pre-letter workout codes (W1..W4, D1/D2/D4) to A, B, C, D.
+     Positional, so it holds for any legacy code without a lookup table. */
+  var relettered = false;
+  for(var jk in d.instances){ if(letterCodes(d.instances[jk], d, jk)) relettered = true; }
+  if(relettered && HAS_LS){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
   if(!d.dateMigrated && d.sessions && d.sessions.length){
     d.sessions.forEach(function(s){
       var dt = new Date(s.date + 'T12:00:00');
@@ -585,10 +674,31 @@ let S = load();
 function prog(){ return S.instances[S.active].program; }
 function markEdited(){ S.instances[S.active].edited = true; }
 
-/* ---- dynamic rotation / rest (replaces ORDER and TARGET_DAYS) ---- */
+/* ---- dynamic rotation / rest (replaces ORDER and TARGET_DAYS) ----
+   Two independent clocks, and conflating them was the old bug:
+     interSession = days between any two workouts   ("when do I train next")
+     perCode      = days before a given workout, and so a given body part,
+                    comes back around                ("am I recovered")
+   A 4-workout rotation at 4-7 days between sessions puts each body part on a
+   16-28 day cycle. Judging body-part recency against the session window
+   flagged a perfectly on-schedule 9 days as overdue. */
 function rotation(){ return S.instances[S.active].rotation || ["A","B","C"]; }
 function restSpec(){ return S.instances[S.active].rest || {interSession:[6,8],perCode:[18,24],primary:"perCode"}; }
-function targetDays(){ var r = restSpec(), b = r[r.primary]; return b ? b[1] : 24; }
+function groupWindow(){ return restSpec().perCode || [18,24]; }
+function sessionWindow(){ return restSpec().interSession || [6,8]; }
+function winText(w){ return w[0] === w[1] ? w[0]+" days" : w[0]+"–"+w[1]+" days"; }
+
+/* How a gap of n days sits against a [lo,hi] window. */
+function windowState(n, w){
+  if(n === null) return "none";
+  if(n > w[1]) return "over";
+  if(n >= w[0]) return "due";
+  return "ok";
+}
+function lastSessionDate(){
+  var mine = S.sessions.filter(function(s){ return s.sets.length && s.instance === S.active; });
+  return mine.length ? mine[mine.length-1].date : null;
+}
 
 /* ---- multi-set slot helpers ---- */
 function normalizeSlot(it, cycle){
@@ -620,6 +730,25 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ re
 function exOf(id){ return LIB[id] || S.custom[id] || null; }
 function allEx(){ var o = {}; for(var k in LIB) o[k] = LIB[k]; for(var j in S.custom) o[j] = S.custom[j]; return o; }
 function range(e){ var p = String(e.rr).split("-").map(Number); return [p[0]||1, p[1]||p[0]||1]; }
+
+/* The rep range actually in force for an exercise right now.
+   Templates pin rr per slot - Mentzer's 1-3 incline press, Yates' lower body
+   cycling 8-10 / 15-20, Perez's flat 8-12 - and the session resolves those
+   into slotMap at start time. The library value is only the fallback for
+   exercises no slot pins down (added ad hoc, or viewed outside a session).
+   Everything that decides a rep target must come through here, or the
+   template's range is decoration and the engine quietly uses another. */
+function activeRR(id, setNum){
+  var d = S.draft;
+  if(d && d.slotMap && d.slotMap[id]){
+    var sets = d.slotMap[id].sets;
+    var sd = sets[Math.min(setNum || 0, sets.length - 1)];
+    if(sd && sd.rr) return sd.rr;
+  }
+  var e = exOf(id);
+  return e ? e.rr : "1-1";
+}
+function activeRange(id, setNum){ return range({rr: activeRR(id, setNum)}); }
 function e1rm(reps, w, mult){ return Math.round(w * mult * (1 + reps/30)); }
 function suffix(e){ return e.mult === 2 ? " ea" : ""; }
 
@@ -677,7 +806,8 @@ function bestFor(id){
 }
 /** DOUBLE PROGRESSION: target derives from the PR (best set), not the last set. */
 function targetFor(id){
-  var e = exOf(id), r = range(e), lo = r[0], hi = r[1];
+  /* Double progression tracks the top set, so the top set's range governs. */
+  var e = exOf(id), r = activeRange(id, 0), lo = r[0], hi = r[1];
   var pr = bestFor(id), last = lastKnown(id);
   if(!pr) return {reps:lo, weight:null, bumped:false, pr:null, last:last, lo:lo, hi:hi};
   if(e.bw) return {reps:Math.min(pr.reps + 1, hi) === hi && pr.reps >= hi ? lo : pr.reps + 1, weight:null, bumped:false, pr:pr, last:last, lo:lo, hi:hi, bwEx:true};
@@ -736,7 +866,9 @@ function entryFor(id, force){
       var topLogged = d.sets.filter(function(s){ return s.ex === id && (!s.role || s.role === "top"); })[0];
       if(topLogged && setDef.loadFactor) weight = Math.round(topLogged.weight * setDef.loadFactor);
       else if(topLogged) weight = topLogged.weight;
-      var e = exOf(id); reps = e ? range(e)[0] : reps;
+      /* A follow set has no independent target - it opens at the bottom of
+         its own range and you take it as far as the lighter load allows. */
+      reps = activeRange(id, setNum)[0];
     }
     entry[id] = {weight: weight === null ? "" : weight, reps:reps, endedWith:"clean", note:"",
                  setNum:setNum, role:setDef.role || "top"};
@@ -754,14 +886,25 @@ function viewToday(){
   var lastOf = S.sessions.slice().reverse().filter(function(s){ return s.workout === code && s.instance === S.active; })[0];
   var since = lastOf ? daysBetween(lastOf.date, today()) : null;
 
+  var gw = groupWindow(), sw = sessionWindow();
+
   var groups = [], seen = {};
   var A = allEx(); for(var k in A){ if(!seen[A[k].g]){ seen[A[k].g] = 1; groups.push(A[k].g); } }
-  var td = targetDays();
   var chips = groups.map(function(g){
     var ld = lastGroupDate(g), n = ld ? daysBetween(ld, today()) : null;
-    var cls = n === null ? "none" : n > td ? "over" : n >= td*0.75 ? "due" : "ok";
-    return '<div class="chip '+cls+'"><div class="g">'+esc(g)+'</div><div class="d">'+(n === null ? "&mdash;" : n+"d")+'</div></div>';
+    return '<div class="chip '+windowState(n, gw)+'"><div class="g">'+esc(g)+'</div>'
+         + '<div class="d">'+(n === null ? "&mdash;" : n+"d")+'</div></div>';
   }).join("");
+
+  /* Session clock: how long since the last workout of any code. Unlike the
+     body-part chips, being inside this window is the good state. */
+  var lastAny = lastSessionDate();
+  var gap = lastAny ? daysBetween(lastAny, today()) : null;
+  var due, dueCls = "";
+  if(gap === null) due = "First workout of this program";
+  else if(gap < sw[0]){ due = "Rested "+gap+"d &middot; next due in "+(sw[0]-gap)+"d"; }
+  else if(gap <= sw[1]){ due = "Rested "+gap+"d &middot; inside the "+winText(sw)+" window"; dueCls = "ready"; }
+  else { due = "Rested "+gap+"d &middot; past the "+winText(sw)+" window"; dueCls = "late"; }
 
   return '<div class="seg-h">Today I am doing</div>'
     + '<div class="seg">' + rotation().map(function(c){
@@ -771,10 +914,12 @@ function viewToday(){
     + '<div class="eyebrow">'+(code === auto.code ? "Next in rotation" : "Out of rotation")+'</div>'
     + '<div class="rowtop"><div class="tile">'+code+'</div><div style="flex:1">'
     + '<div class="focus">'+esc(focusOf(code))+'</div>'
-    + '<div class="meta">'+(since === null ? "not yet logged" : since+" days since "+code)+' &middot; '+resolveList(code, cycle).length+' exercises</div>'
+    + '<div class="meta">'+(since === null ? "not yet logged" : since+"d since "+code+" &middot; comes around every "+winText(gw))+'</div>'
+    + '<div class="meta">'+resolveList(code, cycle).length+' exercises</div>'
     + '</div></div>'
+    + '<div class="dueline '+dueCls+'">'+due+'</div>'
     + '<button class="btn-start" onclick="startSession(\''+code+'\','+cycle+')">Start workout '+code+'</button></section>'
-    + '<div class="sec-h">Days since trained &middot; target '+td+'</div>'
+    + '<div class="sec-h">Days since trained &middot; target '+winText(gw)+'</div>'
     + '<div class="ready">'+chips+'</div>';
 }
 
@@ -807,18 +952,24 @@ function card(d, id, i){
   var allDone = logged.length >= needed;
   var partialDone = logged.length > 0 && !allDone;
   var isOpen = open_ === id || partialDone;
-  var r = range(e), lo = r[0], hi = r[1];
+  /* Range for the set being entered now, not the library default. */
+  var setNum = logged.length;
+  var rrText = activeRR(id, setNum);
+  var r = activeRange(id, setNum), lo = r[0], hi = r[1];
 
   if(allDone && open_ !== id){
     var topSet = logged.filter(function(s){ return !s.role || s.role === "top"; })[0] || logged[0];
     var sew = topSet.endedWith || "clean";
+    /* The TOP badge judges the top set, so use the top set's range - setNum
+       has already run past the end by the time every set is logged. */
+    var topHi = activeRange(id, 0)[1];
     var summ = logged.length > 1
       ? logged.map(function(s){ return s.reps+'&times;'+s.weight; }).join(' / ')+suffix(e)
       : topSet.reps+' &times; '+topSet.weight+suffix(e)+(sew !== "clean" ? ' · '+sew : '');
     return '<article class="card done"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">&#10003;</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
       + '<span class="r">'+summ+'</span></span>'
-      + (sew === "clean" && topSet.reps >= hi ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
+      + (sew === "clean" && topSet.reps >= topHi ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
       + '</button></article>';
   }
 
@@ -876,10 +1027,10 @@ function card(d, id, i){
 
   return '<article class="card open"><button class="chead" onclick="toggle(\''+id+'\')">'
     + '<span class="rtile">'+(i+1)+'</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
-    + '<span class="r">'+esc(e.rr)+' reps &middot; '+esc(e.unit)+'</span></span></button>'
+    + '<span class="r">'+esc(rrText)+' reps &middot; '+esc(e.unit)+'</span></span></button>'
     + '<div class="cbody">'
     + loggedHtml + setLabel
-    + (t.bumped && !partialDone ? '<div class="bump">You hit <b>'+t.pr.reps+'</b> reps at your PR - top of the '+esc(e.rr)
+    + (t.bumped && !partialDone ? '<div class="bump">You hit <b>'+t.pr.reps+'</b> reps at your PR - top of the '+esc(activeRR(id, 0))
         + ' range. Weight moves <b>'+t.pr.weight+' &rarr; '+t.weight+'</b>, reps reset to <b>'+lo+'</b>.</div>' : '')
     + (st.role !== "working" ? infoLines : '')
     + '<div class="targline">Target: '+(st.role === "working" ? reps+' &times; '+st.weight+suffix(e)+' (follow)' : t.weight === null ? (t.bwEx ? t.reps+' reps (enter weight)' : 'your call') : t.reps+' &times; '+t.weight+suffix(e))+'</div>'
@@ -898,7 +1049,7 @@ function card(d, id, i){
     + '<button onclick="bump(\''+id+'\',\'reps\',-1)" aria-label="fewer reps">&minus;</button>'
     + '<input type="number" inputmode="numeric" value="'+st.reps+'" oninput="setv(\''+id+'\',\'reps\',this.value)">'
     + '<button onclick="bump(\''+id+'\',\'reps\',1)" aria-label="more reps">+</button>'
-    + '</div><div class="unit">range '+esc(e.rr)+'</div></div></div>'
+    + '</div><div class="unit">range '+esc(rrText)+'</div></div></div>'
     + '<div class="fail-row">' + ENDED_WITH.map(function(ew){
         return '<button aria-pressed="'+(st.endedWith === ew.v)+'" onclick="setv(\''+id+'\',\'endedWith\',\''+ew.v+'\')">'
              + ew.l+'</button>'; }).join("") + '</div>'
@@ -972,21 +1123,32 @@ function viewData(){
   /* Instance switcher (if multiple instances) */
   var instKeys = Object.keys(S.instances);
   var instPicker = instKeys.length > 1
-    ? '<div class="seg" style="margin-bottom:14px">' + instKeys.map(function(k){
+    ? '<div class="inst">' + instKeys.map(function(k){
         return '<button aria-pressed="'+(k === S.active)+'" onclick="switchInstance(\''+k+'\')">'
-             + '<span class="f">'+esc(S.instances[k].name)+'</span></button>';
+             + esc(S.instances[k].name)+'</button>';
       }).join("") + '</div>' : '';
 
-  /* Adapted notice */
-  var notice = tmpl && tmpl.adapted
-    ? '<div class="bump" style="margin-bottom:14px"><b>Adapted.</b> '+esc(tmpl.source)+'</div>' : '';
+  /* How this program runs: both rest clocks plus set structure. */
+  function row(k, v){ return '<div class="r"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>'; }
+  var runs = '<div class="runs">'
+    + row("Rotation", rot.join(" &rarr; ")+" &middot; then back to "+rot[0])
+    + row("Between workouts", winText(sessionWindow()))
+    + row("Each returns", "every "+winText(groupWindow()))
+    + (tmpl && tmpl.structure ? row("Sets", esc(tmpl.structure)) : "")
+    + '</div>';
+
+  var cite = tmpl
+    ? '<div class="cite">'+(tmpl.adapted ? '<b>Adapted.</b> ' : '<b>As published.</b> ')+esc(tmpl.source)+'</div>'
+    : '';
 
   var progHtml = rot.map(function(c){
     var open = editWO === c, items = prog()[c].list;
     return '<div class="wo-edit"><button class="h" onclick="editWO='+(open ? 'null' : "'"+c+"'")+';addTo=null;newForm=false;render()">'
       + '<span class="l" style="'+wlStyle(c)+'">'+c+'</span><span class="t">'+esc(prog()[c].focus)+'</span>'
       + '<span class="c">'+items.length+' &middot; '+(open ? '&#9650;' : '&#9660;')+'</span></button>'
-      + (open ? '<div class="list">' + items.map(function(it, i){
+      + (open ? '<div class="list">'
+        + (prog()[c].note ? '<div class="cite" style="margin:2px 0 12px">'+esc(prog()[c].note)+'</div>' : '')
+        + items.map(function(it, i){
           return '<div class="erow"><span class="en">'+esc(slotLabel(it))+'<small>'+slotSub(it)+'</small></span>'
             + '<button class="mv" onclick="move(\''+c+'\','+i+',-1)" aria-label="move up"'+(i === 0 ? ' disabled' : '')+'>&uarr;</button>'
             + '<button class="mv" onclick="move(\''+c+'\','+i+',1)" aria-label="move down"'+(i === items.length-1 ? ' disabled' : '')+'>&darr;</button>'
@@ -999,14 +1161,19 @@ function viewData(){
 
   /* Template picker */
   var tplHtml = Object.keys(TEMPLATES).map(function(tid){
-    var t = TEMPLATES[tid];
-    return '<button class="opt" onclick="createInstance(\''+tid+'\')">'+esc(t.name)
-      + '<small>'+t.rotation.length+' workouts &middot; '+(t.adapted ? 'adapted' : 'as published')+'</small></button>';
+    var t = TEMPLATES[tid], cur = tid === inst.source;
+    return '<button class="tpl'+(cur ? ' cur' : '')+'" onclick="createInstance(\''+tid+'\')">'
+      + '<span class="n">'+esc(t.name)+(cur ? ' &middot; current' : '')+'</span>'
+      + '<span class="m">'+t.rotation.join("/")+' &middot; '+winText(t.rest.interSession)+' apart &middot; '
+      + (t.adapted ? 'adapted' : 'as published')+'</span>'
+      + '<span class="b">'+esc(t.blurb)+'</span></button>';
   }).join("");
 
-  return instPicker + notice
+  return instPicker
     + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
-    + '<p>'+rot.join(' &rarr; ')+' rotation. Tap a workout to add, remove or reorder movements.</p>'
+    + (tmpl && tmpl.blurb ? '<p>'+esc(tmpl.blurb)+'</p>' : '')
+    + runs + cite
+    + '<p>Tap a workout to add, remove or reorder movements.</p>'
     + progHtml
     + '<button class="btn-o" onclick="resetProgram()">Reset to source template</button></div>'
     + '<div class="panel"><h3>Storage</h3><p>'
@@ -1024,7 +1191,7 @@ function viewData(){
     + '<button class="btn-o" onclick="exportBaselines()">Export baselines</button>'
     + '<button class="btn-o danger" onclick="wipe()">Erase all sessions</button></div>'
     + '<div class="panel"><h3>Start a new program</h3>'
-    + '<p>Pick a template. Your current program and all sessions are kept.</p>'
+    + '<p>Starts a fresh copy you can edit freely. Your current program and every logged session are kept &mdash; switch back any time.</p>'
     + tplHtml + '</div>';
 }
 
@@ -1073,7 +1240,7 @@ function commit(id){
   var st = entryFor(id), reps = Number(st.reps), weight = Number(st.weight), e = exOf(id);
   if(!reps || reps < 1) return toast("Enter reps first");
   if(!weight || weight <= 0) return toast("Enter a weight first");
-  var hi = range(e)[1];
+  var hi = activeRange(id, st.setNum || 0)[1];
   var ew = st.endedWith;
   var role = st.role || "top";
   S.draft.sets.push({ex:id, reps:reps, weight:weight, endedWith:ew, note:st.note || "",
@@ -1196,8 +1363,14 @@ function importJSON(input){
     try{
       var d = JSON.parse(r.result);
       if(!Array.isArray(d.sessions)) throw new Error("bad");
+      /* Only v2 payloads carry dates from the old UTC today() and need the
+         one-time shift. A v3 export was already corrected, so carry the flag
+         across - dropping it shifted every date back a day on the next load,
+         compounding on each export/import round trip. */
+      var wasV3 = d.schema === 3;
       if(!d.schema || d.schema < 3) d = migrateV2(d);
-      S = {schema:3, instances:d.instances, active:d.active,
+      S = {schema:3, dateMigrated: wasV3 || d.dateMigrated === true,
+           instances:d.instances, active:d.active,
            sessions:d.sessions, draft:d.draft || null,
            custom:d.custom || {}, baselines:d.baselines || S.baselines || {}};
       save(); toast("Imported "+d.sessions.length+" sessions"); render();
