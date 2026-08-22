@@ -232,6 +232,11 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   font-size:12px;line-height:1.55;color:var(--txt-3)}
 .cite b{color:var(--txt-2);font-weight:600}
 
+/* Template-drift notice */
+.stale{background:var(--blue-c);border-radius:12px;padding:12px 14px;margin-bottom:14px;
+  font-size:12.5px;line-height:1.5;color:var(--blue-on)}
+.stale .btn-o{margin-top:10px;background:var(--surface);border-color:var(--blue)}
+
 /* "How it runs" spec rows */
 .runs{display:flex;flex-direction:column;gap:9px;margin-bottom:14px}
 .runs .r{display:flex;gap:12px;font-size:12.5px;line-height:1.5}
@@ -511,8 +516,10 @@ const TEMPLATES = {
                {alt:["legcurl","sldl"],sets:YL},
                {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
       C:{focus:"Back & Deltoids",
-         list:[{ex:"pullover",sets:Y2},{ex:"pulldown",sets:Y2},{ex:"row",sets:Y2},
-               {ex:"chins",sets:Y2},{ex:"bbrow",sets:Y2},
+         note:"One vertical pull and one horizontal pull per session, alternating each time C comes around: palms-up pulldown / chins, then cable row / barbell row.",
+         list:[{ex:"pullover",sets:Y2},
+               {alt:["pulldown","chins"],sets:Y2},
+               {alt:["row","bbrow"],sets:Y2},
                {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
                {alt:["bentlat","revfly"],sets:Y2}]}
     }
@@ -537,8 +544,10 @@ const TEMPLATES = {
                {alt:["legcurl","sldl"],sets:YL},
                {ex:"stdcalf",sets:YC},{ex:"calf",sets:YC}]},
       C:{focus:"Back & Deltoids",
-         list:[{ex:"pullover",sets:Y2},{ex:"pulldown",sets:Y2},{ex:"row",sets:Y2},
-               {ex:"chins",sets:Y2},{ex:"bbrow",sets:Y2},
+         note:"One vertical pull and one horizontal pull per session, alternating each time C comes around: palms-up pulldown / chins, then cable row / barbell row.",
+         list:[{ex:"pullover",sets:Y2},
+               {alt:["pulldown","chins"],sets:Y2},
+               {alt:["row","bbrow"],sets:Y2},
                {ex:"pbn",sets:Y2},{ex:"lateral",sets:Y2},
                {alt:["bentlat","revfly"],sets:Y2}]}
     }
@@ -1224,6 +1233,16 @@ function viewData(){
     ? '<div class="cite">'+(tmpl.adapted ? '<b>Adapted.</b> ' : '<b>As published.</b> ')+esc(tmpl.source)+'</div>'
     : '';
 
+  /* A program is deep-copied from its template at creation, so later template
+     changes do not reach copies already made. Flag the drift when the copy was
+     never edited by hand - anything you changed yourself is left alone. */
+  var stale = tmpl && !inst.edited
+    && JSON.stringify(inst.program) !== JSON.stringify(tmpl.days);
+  var staleNote = stale
+    ? '<div class="stale">The '+esc(tmpl.name)+' template has changed since you started this copy.'
+      + '<button class="btn-o" onclick="resetProgram()">Update to the current template</button></div>'
+    : '';
+
   var progHtml = rot.map(function(c){
     var open = editWO === c, items = prog()[c].list;
     return '<div class="wo-edit"><button class="h" onclick="editWO='+(open ? 'null' : "'"+c+"'")+';addTo=null;newForm=false;render()">'
@@ -1255,7 +1274,7 @@ function viewData(){
   return instPicker
     + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
     + (tmpl && tmpl.blurb ? '<p>'+esc(tmpl.blurb)+'</p>' : '')
-    + runs + cite
+    + runs + cite + staleNote
     + '<p>Tap a workout to add, remove or reorder movements.</p>'
     + progHtml
     + '<button class="btn-o" onclick="resetProgram()">Reset to source template</button></div>'
