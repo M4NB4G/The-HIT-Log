@@ -22,15 +22,25 @@ const SHELL = [
   "./favicon.png"
 ];
 
+var PAGE = "./index.html";
+
 self.addEventListener("install", function (e) {
   e.waitUntil(
     caches.open(CACHE)
       // addAll rejects the whole batch if any single file 404s, which would
-      // leave the app with no cache at all. Cache individually instead.
+      // leave the app with no cache at all. Cache individually instead - but
+      // the page itself is not optional. Swallowing ITS failure too meant a
+      // flaky network could finish the install with an empty cache, and the
+      // activate step below would then bin the previous version that still
+      // worked. Let a failure on the page reject, so the install fails, the
+      // old worker stays, and the old cache survives.
       .then(function (c) {
-        return Promise.all(SHELL.map(function (u) {
-          return c.add(u).catch(function () { /* skip anything missing */ });
-        }));
+        return c.add(PAGE).then(function () {
+          return Promise.all(SHELL.filter(function (u) { return u !== PAGE; })
+            .map(function (u) {
+              return c.add(u).catch(function () { /* skip anything missing */ });
+            }));
+        });
       })
       .then(function () { return self.skipWaiting(); })
   );
@@ -38,11 +48,18 @@ self.addEventListener("install", function (e) {
 
 self.addEventListener("activate", function (e) {
   e.waitUntil(
-    caches.keys()
-      .then(function (keys) {
-        return Promise.all(keys.map(function (k) {
-          return k === CACHE ? null : caches.delete(k);
-        }));
+    // Retire older caches only once this one can actually serve the app.
+    // Deleting first and hoping was what turned a bad install into a blank
+    // screen with nothing to fall back to.
+    caches.open(CACHE)
+      .then(function (c) { return c.match(PAGE); })
+      .then(function (hit) {
+        if (!hit) return null;
+        return caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) {
+            return k === CACHE ? null : caches.delete(k);
+          }));
+        });
       })
       .then(function () { return self.clients.claim(); })
   );
