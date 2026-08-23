@@ -265,6 +265,12 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .tpl.cur .n{color:var(--accent-on)} .tpl.cur .m,.tpl.cur .b{color:var(--accent-on);opacity:.85}
 .tpl.cur .nx{color:var(--accent-on);opacity:.9}
 
+/* First-run chooser. */
+.hello{margin:4px 0 4px}
+.hello h2{margin:0 0 8px;font-size:22px;font-weight:500;letter-spacing:-.01em}
+.hello p{margin:0 0 12px;font-size:13.5px;line-height:1.6;color:var(--txt-2)}
+.hello .hint{font-size:12.5px;color:var(--txt-3)}
+
 /* Add-to-home-screen instructions, iOS only. */
 .howto{background:var(--blue-c);border-radius:12px;padding:12px 14px;margin-bottom:14px;
   font-size:12.5px;line-height:1.5;color:var(--blue-on)}
@@ -659,16 +665,22 @@ let mem = null;
 const HAS_LS = (function(){ try{ localStorage.setItem("__t","1"); localStorage.removeItem("__t"); return true; }catch(e){ return false; } })();
 
 function blank(){
-  var p = JSON.parse(JSON.stringify(DEFAULT_PROGRAM));
-  /* dateMigrated is set here on purpose. The flag guards a one-time correction
+  /* No default program. Eight routines ship with the app and which one you
+     train is not a decision the app should make for you - defaulting put every
+     new install on the author's own routine. A fresh state has no instances
+     and render() shows the chooser until one is picked.
+
+     dateMigrated is set here on purpose. The flag guards a one-time correction
      for dates written by the old UTC-based today(); a state starting from
      empty has no such dates. Leaving it unset made load() shift the first
      session a fresh install logged back by a day. */
   return {schema:3, dateMigrated:true,
-          instances:{i1:{source:"persyn",name:"Persyn 3-Workout",edited:false,
-          rotation:["A","B","C"],rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
-          program:p}},
-          active:"i1", sessions:[], draft:null, custom:{}, baselines:{}};
+          instances:{}, active:null,
+          sessions:[], draft:null, custom:{}, baselines:{}};
+}
+/** False only on a fresh install, before a routine has been chosen. */
+function hasProgram(){
+  return !!(S && S.active && S.instances && S.instances[S.active]);
 }
 
 /** Migrate v2 data (or a v2 export) into the v3 schema.  Idempotent. */
@@ -741,6 +753,12 @@ function load(){
     d.instances[ik].rotation = tmpl ? tmpl.rotation.slice() : ["A","B","C"];
     d.instances[ik].rest = tmpl ? JSON.parse(JSON.stringify(tmpl.rest)) : {interSession:[6,8],perCode:[18,24],primary:"perCode"};
   }}
+  /* An active pointer that names no instance would drop someone with real
+     programs into the first-run chooser. Repair it rather than lose them. */
+  if(d.instances && (!d.active || !d.instances[d.active])){
+    var firstKey = Object.keys(d.instances)[0];
+    d.active = firstKey || null;
+  }
   /* Instances copy their name at creation, so renaming a template would leave
      older copies showing the old label. Nothing lets you rename an instance
      by hand, so the template is always the authority. */
@@ -1369,6 +1387,40 @@ function viewRecords(){
 }
 
 /* ============================================================ PROGRAM */
+/* One template card. Shared by the Program picker and the first-run chooser,
+   so the two cannot drift apart. */
+function tplCard(tid, cur){
+  var t = TEMPLATES[tid], nxt = t.successor && TEMPLATES[t.successor];
+  return '<button class="tpl'+(cur ? ' cur' : '')+'" onclick="createInstance(\''+tid+'\')">'
+    + '<span class="n">'+esc(t.name)+(cur ? ' &middot; current' : '')+'</span>'
+    + '<span class="m">'+t.rotation.join("/")+' &middot; '+winText(t.rest.interSession)+' apart &middot; '
+    + (t.adapted ? 'adapted' : 'as published')+'</span>'
+    + '<span class="b">'+esc(t.blurb)+'</span>'
+    + (nxt ? '<span class="nx">Leads to '+esc(nxt.name)+'</span>' : '')+'</button>';
+}
+/** The grouped list, optionally omitting one already shown above it. */
+function templateGroups(exclude){
+  return TPL_GROUPS.map(function(g){
+    var ids = Object.keys(TEMPLATES).filter(function(tid){
+      return tid !== exclude && templateGroup(TEMPLATES[tid]) === g.key; });
+    if(!ids.length) return '';
+    return '<div class="tplg">'+g.label+'</div>'
+         + ids.map(function(tid){ return tplCard(tid, false); }).join("");
+  }).join("");
+}
+
+/* First run: no routine chosen yet. This is the whole app until one is. */
+function viewWelcome(){
+  return '<section class="hello">'
+    + '<h2>Pick a routine</h2>'
+    + '<p>These are all high-intensity templates: short, hard sessions and long recovery. '
+    + 'Pick whichever fits how often you can train &mdash; you can edit it, or switch, at any time. '
+    + 'Switching never deletes anything you have logged.</p>'
+    + '<p class="hint">New to lifting, or coming back after a long layoff? Start with the break-in at the bottom.</p>'
+    + '</section>'
+    + templateGroups(null);
+}
+
 function slotLabel(it){
   if(typeof it === "string"){ var e = exOf(it); return e ? e.n : it; }
   if(it.alt) return it.alt.map(function(x){ var e = exOf(x); return e ? e.n : x; }).join("  /  ");
@@ -1467,24 +1519,10 @@ function viewData(){
   }).join("");
 
   /* Template picker */
-  function tplCard(tid, cur){
-    var t = TEMPLATES[tid], nxt = t.successor && TEMPLATES[t.successor];
-    return '<button class="tpl'+(cur ? ' cur' : '')+'" onclick="createInstance(\''+tid+'\')">'
-      + '<span class="n">'+esc(t.name)+(cur ? ' &middot; current' : '')+'</span>'
-      + '<span class="m">'+t.rotation.join("/")+' &middot; '+winText(t.rest.interSession)+' apart &middot; '
-      + (t.adapted ? 'adapted' : 'as published')+'</span>'
-      + '<span class="b">'+esc(t.blurb)+'</span>'
-      + (nxt ? '<span class="nx">Leads to '+esc(nxt.name)+'</span>' : '')+'</button>';
-  }
   /* The program you are on sits at the top, then the rest by set structure.
      It is omitted from its own group so it appears once, not twice. */
   var tplHtml = (TEMPLATES[inst.source] ? tplCard(inst.source, true) : '')
-    + TPL_GROUPS.map(function(g){
-        var ids = Object.keys(TEMPLATES).filter(function(tid){
-          return tid !== inst.source && templateGroup(TEMPLATES[tid]) === g.key; });
-        if(!ids.length) return '';
-        return '<div class="tplg">'+g.label+'</div>' + ids.map(function(tid){ return tplCard(tid, false); }).join("");
-      }).join("");
+    + templateGroups(inst.source);
 
   return instPicker
     + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
@@ -1698,7 +1736,9 @@ function createInstance(templateId){
      is how the switcher ended up with twenty. Reading is now free (the card
      carries the blurb), and a tap that would duplicate either lands on the
      untouched copy already sitting there or asks first. */
-  if(S.instances[S.active].source === templateId){ toast("Already on "+t.name); return; }
+  /* hasProgram() is false on first run, where there is no current source to
+     compare against and every tap is a first choice rather than a duplicate. */
+  if(hasProgram() && S.instances[S.active].source === templateId){ toast("Already on "+t.name); return; }
   var mine = Object.keys(S.instances).filter(function(k){ return S.instances[k].source === templateId; });
   var spare = mine.filter(isSpare)[0];
   if(spare){ switchInstance(spare); toast("Switched to "+t.name); return; }
@@ -1813,6 +1853,18 @@ function exportBaselines(){
 
 /* ---------------- render ---------------- */
 function render(){
+  var nav = document.querySelector(".nav");
+  /* Before a routine is chosen there is no rotation, no next workout and
+     nothing to log, so the tabs would all be empty or throw. The chooser is
+     the entire app until one is picked. */
+  if(!hasProgram()){
+    if(nav) nav.classList.add("hide");
+    document.getElementById("view").innerHTML = viewWelcome();
+    document.getElementById("topMark").textContent = "•";
+    document.getElementById("topSub").textContent = "choose a routine";
+    return;
+  }
+  if(nav) nav.classList.remove("hide");
   var activeCode = S.draft ? S.draft.workout : (pick || nextWorkout().code);
   if(tab !== "today") setAccent(activeCode);
   document.getElementById("view").innerHTML =
