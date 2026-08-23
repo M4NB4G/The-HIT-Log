@@ -433,20 +433,11 @@ const LIB = {
   revcrunch:  {n:"Reverse Crunch",            g:"Abs",             rr:"12-20", mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""}
 };
 
-/* Snapshot of pre-strip baselines for migrating existing users */
-const LEGACY_BASELINES = {
-  fly:{set:"11x75",date:"2026-01-22"}, incline:{set:"9x75",date:"2026-04-03"},
-  pulldown:{set:"10x209",date:"2026-05-08"}, row:{set:"8x225",date:"2026-07-28"},
-  deadlift:{set:"11x355",date:"2026-06-21"}, legext:{set:"17x260",date:"2026-07-21"},
-  legpress:{set:"23x640",date:"2026-06-27"}, squat:{set:"13x260",date:"2026-07-21"},
-  legcurl:{set:"17x200",date:"2026-06-27"}, donkey:{set:"20x630",date:"2026-05-01"},
-  calf:{set:"20x400",date:"2026-02-24"}, abs:{set:"24x150",date:"2026-04-10"},
-  facepull:{set:"11x40",date:"2026-07-09"}, lateral:{set:"10x30",date:"2026-07-09"},
-  revfly:{set:"13x20",date:"2026-07-09"}, curl:{set:"10x231",date:"2026-03-19"},
-  pushdown:{set:"11x110",date:"2026-05-22"}, dips:{set:"6x297",date:"2026-04-24"},
-  pullover:{set:"7x240",date:"2026-04-03"}, sapd:{set:"7x110",date:"2025-11-17"},
-  bbcurl:{set:"8x80",date:"2026-04-24"}
-};
+/* One user's archived lifts used to be hardcoded here and seeded into any
+   stored state that predated the baselines feature. That belonged to a single
+   person and shipped to everyone who loaded the page, so it is gone. Baselines
+   now only ever arrive from the state on the device or from Load baselines,
+   which reads a JSON export - the same route anyone else would use. */
 
 /* ============================================================
    TEMPLATE LIBRARY  (read-only reference data)
@@ -746,7 +737,8 @@ function load(){
   if(!d.instances) d = migrateV2(d);
   if(!d.custom) d.custom = {};
   if(!d.sessions) d.sessions = [];
-  if(!d.baselines){ d.baselines = {}; for(var k in LEGACY_BASELINES) d.baselines[k] = JSON.parse(JSON.stringify(LEGACY_BASELINES[k])); }
+  /* Absent baselines means none, not "seed somebody else's". */
+  if(!d.baselines) d.baselines = {};
   /* backfill rotation/rest for v3 instances created before step 4 */
   for(var ik in d.instances){ if(!d.instances[ik].rotation){
     var tmpl = TEMPLATES[d.instances[ik].source];
@@ -1376,7 +1368,12 @@ function viewRecords(){
     return {e:A[id], b:b, t:t, since: l ? daysBetween(l.date, today()) : null};
   }).sort(function(a,b){ return (b.since === null ? -1 : b.since) - (a.since === null ? -1 : a.since); });
   return '<div class="panel"><h3>Records and next targets</h3>'
-    + '<p>Target comes from double progression: meet or beat the top of the rep range and the weight goes up one increment, reps reset to the bottom. Rows marked &middot; were seeded from the archived Excel log.</p>'
+    /* The seeded-row note only applies once baselines have been loaded, which
+       no longer happens by default. Do not explain a marker that is not there. */
+    + '<p>Target comes from double progression: meet or beat the top of the rep range and the weight goes up one increment, reps reset to the bottom.'
+    + (rows.some(function(r){ return r.b && r.b.seeded; })
+        ? ' Rows marked &middot; came from loaded baselines rather than a logged session.' : '')
+    + '</p>'
     + '<table class="prtab"><tr><th>Movement</th><th class="r">Best set</th><th class="r">Next target</th><th class="r">Ago</th></tr>'
     + rows.map(function(r){
         return '<tr><td class="n">'+esc(r.e.n)+(r.b && r.b.seeded ? ' <span style="color:var(--txt-3)">&middot;</span>' : '')+'</td>'
