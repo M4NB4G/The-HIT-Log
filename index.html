@@ -265,6 +265,14 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .tpl.cur .n{color:var(--accent-on)} .tpl.cur .m,.tpl.cur .b{color:var(--accent-on);opacity:.85}
 .tpl.cur .nx{color:var(--accent-on);opacity:.9}
 
+/* Add-to-home-screen instructions, iOS only. */
+.howto{background:var(--blue-c);border-radius:12px;padding:12px 14px;margin-bottom:14px;
+  font-size:12.5px;line-height:1.5;color:var(--blue-on)}
+.howto b{font-weight:600}
+.howto ol{margin:8px 0 0;padding-left:20px}
+.howto li{margin-bottom:5px}
+.howto .q{display:block;margin-top:9px;font-size:11px;opacity:.8}
+
 /* Where a break-in leads next. An offer, never automatic. */
 .next{background:var(--blue-c);border-radius:12px;padding:12px 14px;margin-bottom:14px;
   font-size:12.5px;line-height:1.5;color:var(--blue-on)}
@@ -1490,8 +1498,22 @@ function viewData(){
         ? 'Saved on this device. '+S.sessions.length+' session'+(S.sessions.length === 1 ? '' : 's')+', '+nSets+' sets. Nothing leaves your phone.'
         : '<strong style="color:var(--amber-on)">Preview mode - nothing persists.</strong> Deploy this file to a real URL and localStorage takes over.')
     + '</p>'
-    + (deferredPrompt ? '<button class="btn-o" style="border-color:var(--blue);background:var(--blue-c)" onclick="doInstall()">Install on this phone</button>' : '')
-    + (isStandalone() ? '<p style="margin:-6px 0 12px;color:var(--green-on)">Installed and running from your home screen.</p>' : '')
+    /* One install block, three cases. iOS gets written instructions because
+       Safari will never surface a prompt for us to hook. */
+    + (isStandalone()
+        ? '<p style="margin:-6px 0 12px;color:var(--green-on)">Installed and running from your home screen.</p>'
+        : deferredPrompt
+        ? '<button class="btn-o" style="border-color:var(--blue);background:var(--blue-c)" onclick="doInstall()">Install on this phone</button>'
+        : isIOS()
+        ? '<div class="howto"><b>Add to your home screen</b>'
+          + (isIOSSafari()
+              ? '<ol><li>Tap the Share button at the bottom of Safari &mdash; the square with an arrow out of it.</li>'
+                + '<li>Scroll down the list and tap <b>Add to Home Screen</b>.</li>'
+                + '<li>Tap <b>Add</b>. It opens full screen and works without signal.</li></ol>'
+              : '<ol><li>Open this page in <b>Safari</b> &mdash; Add to Home Screen only appears in Safari\'s share menu.</li>'
+                + '<li>Tap Share, then <b>Add to Home Screen</b>.</li></ol>')
+          + '<span class="q">iPhone and iPad never show an install button. Adding it by hand is the only way, and it is the same result.</span></div>'
+        : '')
     + '<button class="btn-o" onclick="exportJSON()">Export JSON</button>'
     + '<button class="btn-o" onclick="document.getElementById(\'imp\').click()">Import JSON</button>'
     + '<input type="file" id="imp" accept="application/json" class="hide" onchange="importJSON(this)">'
@@ -1816,6 +1838,21 @@ var deferredPrompt = null;
 function isStandalone(){
   return window.matchMedia && window.matchMedia("(display-mode: standalone)").matches
       || window.navigator.standalone === true;
+}
+/* iOS has never implemented beforeinstallprompt and Safari will not prompt to
+   install at all - it is a manual Share -> Add to Home Screen, and no script
+   can trigger it. Without this the install button is simply absent on iPhone
+   and the page offers no way in. */
+function isIOS(){
+  var ua = navigator.userAgent || "";
+  return /iPad|iPhone|iPod/.test(ua)
+      || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);  // iPadOS 13+
+}
+/* Add to Home Screen sits in Safari's share sheet. Chrome, Firefox and Edge on
+   iOS either hide it or bury it, so it is worth saying which browser to use. */
+function isIOSSafari(){
+  var ua = navigator.userAgent || "";
+  return isIOS() && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA/.test(ua);
 }
 window.addEventListener("beforeinstallprompt", function(e){
   e.preventDefault();          // suppress Chrome's mini-infobar, use our own button
