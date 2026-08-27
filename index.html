@@ -1364,8 +1364,8 @@ function viewHistory(){
 function viewRecords(){
   var A = allEx();
   var rows = Object.keys(A).map(function(id){
-    var b = bestFor(id), t = targetFor(id), l = lastKnown(id);
-    return {e:A[id], b:b, t:t, since: l ? daysBetween(l.date, today()) : null};
+    var b = bestFor(id), t = targetFor(id);
+    return {e:A[id], b:b, t:t, since: b ? daysBetween(b.date, today()) : null};
   }).sort(function(a,b){ return (b.since === null ? -1 : b.since) - (a.since === null ? -1 : a.since); });
   return '<div class="panel"><h3>Records and next targets</h3>'
     /* The seeded-row note only applies once baselines have been loaded, which
