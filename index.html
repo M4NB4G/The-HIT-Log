@@ -154,16 +154,21 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .cap{font-size:12px;color:var(--txt-2);margin-top:8px;min-height:32px;line-height:1.4}
 .cap.good{color:var(--green-on)} .cap.top{color:var(--amber-on);font-weight:500}
 
-/* steppers */
-.steppers{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
-.st{background:var(--surface-2);border-radius:14px;padding:10px}
+/* steppers
+   Weight gets the wider column: it carries up to four digits where reps never
+   passes two, and at an even split a three-digit load ran under the + button. */
+.steppers{display:grid;grid-template-columns:1.2fr 1fr;gap:10px;margin-top:14px}
+.st{background:var(--surface-2);border-radius:14px;padding:10px 8px}
 .st .lbl{font-size:11px;font-weight:500;color:var(--txt-2);text-align:center}
-.st .ctl{display:flex;align-items:center;gap:4px;margin-top:6px}
-.st button{width:42px;height:42px;flex:0 0 42px;border-radius:50%;background:var(--surface);
-  color:var(--blue);font-size:22px;line-height:1;box-shadow:var(--e1)}
+.st .ctl{display:flex;align-items:center;gap:2px;margin-top:6px}
+.st button{width:36px;height:36px;flex:0 0 36px;border-radius:50%;background:var(--surface);
+  color:var(--blue);font-size:20px;line-height:1;box-shadow:var(--e1)}
 .st button:active{background:var(--blue-c)}
-.st input{flex:1;min-width:0;width:100%;background:transparent;border:none;text-align:center;
-  font-family:var(--mono);font-size:26px;font-weight:500;color:var(--txt);padding:0}
+/* No width:100% - as a flex item it fights flex-basis and pushes the field
+   wider than the space between the two buttons. */
+.st input{flex:1 1 0;min-width:0;background:transparent;border:none;text-align:center;
+  font-family:var(--mono);font-size:clamp(18px,5.4vw,24px);font-weight:500;
+  letter-spacing:-.5px;color:var(--txt);padding:0}
 .st input:focus{outline:none;color:var(--blue)}
 .unit{font-size:11px;color:var(--txt-3);text-align:center;margin-top:4px;min-height:14px}
 
@@ -1130,7 +1135,7 @@ function viewSession(d){
     + '<div class="focus">'+esc(focusOf(d.workout))+'</div>'
     + '<div class="meta">'+d.sets.length+' set'+(d.sets.length === 1 ? "" : "s")+' logged &middot; '+remaining+' to go</div></div></div>'
     + '<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><span style="font-size:13px;color:var(--txt-2)">Bodyweight</span>'
-    + '<input type="number" inputmode="decimal" placeholder="lb" style="width:80px;min-height:38px;background:var(--surface-2);border:1px solid var(--outline);border-radius:10px;padding:0 10px;font-family:var(--mono);font-size:15px;color:var(--txt)" value="'+(d.bodyweight || '')+'" oninput="setBW(this.value)"></div>'
+    + '<input type="text" inputmode="decimal" placeholder="lb" style="width:80px;min-height:38px;background:var(--surface-2);border:1px solid var(--outline);border-radius:10px;padding:0 10px;font-family:var(--mono);font-size:15px;color:var(--txt)" value="'+(d.bodyweight || '')+'" oninput="setBW(this.value)"></div>'
     + '<button class="btn-start resume" onclick="finishSession()">'+(d.sets.length ? "Finish and save session" : "Cancel session")+'</button></section>'
     + cards
     + (adding
@@ -1292,12 +1297,12 @@ function card(d, id, i){
     + '<div class="steppers">'
     + '<div class="st"><div class="lbl">Weight</div><div class="ctl">'
     + '<button onclick="bump(\''+id+'\',\'weight\',-'+e.step+')" aria-label="less weight">&minus;</button>'
-    + '<input type="number" inputmode="decimal" value="'+st.weight+'" placeholder="&mdash;" oninput="setv(\''+id+'\',\'weight\',this.value)">'
+    + '<input type="text" inputmode="decimal" value="'+st.weight+'" placeholder="&mdash;" oninput="setv(\''+id+'\',\'weight\',this.value)">'
     + '<button onclick="bump(\''+id+'\',\'weight\','+e.step+')" aria-label="more weight">+</button>'
     + '</div><div class="unit">'+esc(e.unit)+'</div></div>'
     + '<div class="st"><div class="lbl">Reps</div><div class="ctl">'
     + '<button onclick="bump(\''+id+'\',\'reps\',-1)" aria-label="fewer reps">&minus;</button>'
-    + '<input type="number" inputmode="numeric" value="'+st.reps+'" oninput="setv(\''+id+'\',\'reps\',this.value)">'
+    + '<input type="text" inputmode="numeric" value="'+st.reps+'" oninput="setv(\''+id+'\',\'reps\',this.value)">'
     + '<button onclick="bump(\''+id+'\',\'reps\',1)" aria-label="more reps">+</button>'
     + '</div><div class="unit">'+(plain ? 'aim for ' : 'range ')+esc(rrLabel(rrText))+'</div></div></div>'
     /* No ending to report on a set prescribed to stop short of failure, so the
@@ -1311,7 +1316,7 @@ function card(d, id, i){
     + (isExtended(st.endedWith)
       ? '<div class="ext"><div class="lbl">Past failure</div><div class="ctl">'
         + '<button onclick="bump(\''+id+'\',\'extra\',-1)" aria-label="fewer">&minus;</button>'
-        + '<input type="number" inputmode="numeric" value="'+(st.extra || 0)+'" oninput="setv(\''+id+'\',\'extra\',this.value)">'
+        + '<input type="text" inputmode="numeric" value="'+(st.extra || 0)+'" oninput="setv(\''+id+'\',\'extra\',this.value)">'
         + '<button onclick="bump(\''+id+'\',\'extra\',1)" aria-label="more">+</button>'
         + '<span class="u">'+esc(endedWithDef(st.endedWith).unit)+'</span></div>'
         + '<div class="hint">'+st.reps+' clean to failure, then '+(st.extra || 0)+'. '
@@ -1591,9 +1596,19 @@ function empty(b,m){ return '<div class="empty"><div class="big">'+b+'</div><p>'
 /* ============================================================ ACTIONS */
 function setBW(v){ if(S.draft){ S.draft.bodyweight = v === "" ? null : Number(v); save(); } }
 function toggle(id){ open_ = open_ === id ? null : id; if(open_) entryFor(open_, true); render(); }
+/* Digits and at most one decimal point. The fields are type="text" so the
+   caret can be restored across a re-render - a number input refuses
+   setSelectionRange - which means the value arrives unvalidated. */
+function numStr(v){
+  var s = String(v).replace(/[^0-9.]/g, ""), p = s.split(".");
+  return p.length > 2 ? p[0] + "." + p.slice(1).join("") : s;
+}
 function setv(id,k,v){
   var st = entryFor(id);
-  st[k] = (k === "note" || k === "endedWith") ? v : (v === "" ? "" : Number(v));
+  /* Held as the typed string, not a Number. Coercing on every keystroke ate a
+     trailing decimal point, so 182.5 could never be entered: the "." vanished
+     the moment it was typed. Everything downstream already coerces. */
+  st[k] = (k === "note" || k === "endedWith") ? v : numStr(v);
   /* Switching away from a past-failure technique drops any count entered for
      it, so a stale number cannot ride along on a set logged as clean. */
   if(k === "endedWith" && !isExtended(v)) st.extra = 0;
@@ -1871,8 +1886,13 @@ function render(){
   var btns = document.querySelectorAll(".nav button");
   for(var i=0;i<btns.length;i++) btns[i].setAttribute("aria-current", btns[i].dataset.tab === tab ? "page" : "false");
 }
+/* Re-render, then put the caret back where it was.
+   While these fields were type="number" this never worked: selectionStart
+   reads as null and setSelectionRange throws InvalidStateError, so every
+   keystroke landed the caret at position 0 and the digits came out reversed. */
 function renderKeepFocus(k){
-  var ae = document.activeElement, pos = ae && ae.selectionStart;
+  var ae = document.activeElement, pos = null;
+  try{ pos = ae ? ae.selectionStart : null; }catch(e){}
   render();
   var el;
   if(k === "extra") el = document.querySelector(".card.open .ext input");
@@ -1880,7 +1900,7 @@ function renderKeepFocus(k){
     var ins = document.querySelectorAll(".card.open .st input");
     el = k === "weight" ? ins[0] : ins[1];
   }
-  if(el){ el.focus(); try{ el.setSelectionRange(pos, pos); }catch(e){} }
+  if(el){ el.focus(); if(pos !== null){ try{ el.setSelectionRange(pos, pos); }catch(e){} } }
 }
 /* ---------------- PWA: install prompt + service worker ---------------- */
 var deferredPrompt = null;
