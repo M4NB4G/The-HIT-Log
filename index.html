@@ -157,22 +157,26 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 /* steppers
    Weight gets the wider column: it carries up to four digits where reps never
    passes two, and at an even split a three-digit load ran under the + button. */
-.steppers{display:grid;grid-template-columns:1.2fr 1fr;gap:10px;margin-top:14px}
+/* minmax(0,...) not a bare fr: an fr track takes its automatic minimum from
+   the item's min-content, and a number input reports a ~20-character
+   intrinsic width, so both columns were sized past the card and the + button
+   ended up sitting on top of a three-digit load. */
+.steppers{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:10px;margin-top:14px}
 .st{background:var(--surface-2);border-radius:14px;padding:10px 8px}
 .st .lbl{font-size:11px;font-weight:500;color:var(--txt-2);text-align:center}
 .st .ctl{display:flex;align-items:center;gap:2px;margin-top:6px}
 .st button{width:36px;height:36px;flex:0 0 36px;border-radius:50%;background:var(--surface);
   color:var(--blue);font-size:20px;line-height:1;box-shadow:var(--e1)}
 .st button:active{background:var(--blue-c)}
-/* No width:100% - as a flex item it fights flex-basis and pushes the field
-   wider than the space between the two buttons. */
-.st input{flex:1 1 0;min-width:0;background:transparent;border:none;text-align:center;
+/* width:0 with flex-grow, not width:100%: it lets the field claim the space
+   left between the buttons while contributing nothing to min-content. */
+.st input{flex:1 1 0;width:0;min-width:0;background:transparent;border:none;text-align:center;
   font-family:var(--mono);font-size:clamp(18px,5.4vw,24px);font-weight:500;
   letter-spacing:-.5px;color:var(--txt);padding:0}
 .st input:focus{outline:none;color:var(--blue)}
 .unit{font-size:11px;color:var(--txt-3);text-align:center;margin-top:4px;min-height:14px}
 
-.fail-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.fail-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:12px}
 .fail-row button{min-height:36px;border-radius:100px;border:1px solid var(--outline);
   font-size:11px;color:var(--txt-2);background:var(--surface)}
 .fail-row button[aria-pressed="true"]{border-color:var(--green);background:var(--green-c);color:var(--green-on);font-weight:500}
