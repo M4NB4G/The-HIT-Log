@@ -2041,12 +2041,25 @@ function playSplash(){
   touchSeen();
   if(Date.now() - last < SPLASH_GAP_MS) return;
 
+  /* Android paints the status bar from theme-color, and a fixed overlay
+     cannot reach OS chrome - so the app's light bar sat in a white strip
+     above a black screen. Borrow it for the run, hand it back after. */
+  var themeMeta = document.querySelector('meta[name="theme-color"]');
+  var themeWas = themeMeta ? themeMeta.getAttribute("content") : null;
+  if(themeMeta) themeMeta.setAttribute("content", "#000000");
+
   var done = false, timer;
   function end(){
     if(done) return;
     done = true; clearTimeout(timer);
     box.classList.add("out");
-    setTimeout(function(){ box.hidden = true; try{ vid.pause(); }catch(e){} }, 340);
+    /* The bar goes back as the fade lands rather than when it starts, so it
+       stays dark for as long as the screen behind it still is. */
+    setTimeout(function(){
+      box.hidden = true;
+      if(themeMeta && themeWas !== null) themeMeta.setAttribute("content", themeWas);
+      try{ vid.pause(); }catch(e){}
+    }, 340);
   }
   box.hidden = false;
   box.addEventListener("click", end);          // tap anywhere, not just the button
