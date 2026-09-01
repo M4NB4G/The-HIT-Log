@@ -927,9 +927,21 @@ function lastKnown(id){
   var m = b.set.match(/(\d+)\s*x\s*([\d.]+)/i); if(!m) return null;
   return {reps:+m[1], weight:+m[2], date:b.date, seeded:true};
 }
+/* Every load the app PROPOSES lands on a multiple of this - the smallest
+   plate or selector pin actually on the gym floor. A weight typed by hand is
+   left exactly as typed, because some stacks really do read 209 or 231. */
+const GRID = 5;
+function snapWeight(w){ return Math.round(w / GRID) * GRID; }
+/* Stepping off an odd load moves onto the grid instead of carrying the offset
+   along: one press up from 68 is 70, not 73. Once on the grid, a press moves
+   a full machine step. */
+function stepWeight(cur, delta){
+  if(cur % GRID !== 0) return delta > 0 ? Math.ceil(cur / GRID) * GRID : Math.floor(cur / GRID) * GRID;
+  return cur + delta;
+}
 function bumpWeight(w, e){
   var raw = w * (e.pct == null ? 5 : e.pct) / 100;
-  return w + Math.max(e.step, Math.round(raw / e.step) * e.step);
+  return snapWeight(w + Math.max(e.step, Math.round(raw / e.step) * e.step));
 }
 /** How the set ended.
     Two different facts used to be crammed into this one enum: whether the set
@@ -1060,7 +1072,7 @@ function entryFor(id, force){
         var topLogged = d.sets.filter(function(s){ return s.ex === id && (!s.role || s.role === "top"); })[0];
         /* loadFactor is usually a back-off (Yates 0.9) but may be a ramp:
            the break-in's second set is 1.1, deliberately heavier. */
-        if(topLogged && setDef.loadFactor) weight = Math.round(topLogged.weight * setDef.loadFactor);
+        if(topLogged && setDef.loadFactor) weight = snapWeight(topLogged.weight * setDef.loadFactor);
         else if(topLogged) weight = topLogged.weight;
         /* A follow set has no independent target - it opens at the bottom of
            its own range and you take it as far as the load allows. */
@@ -1616,8 +1628,9 @@ function setv(id,k,v){
   if(k === "weight" || k === "reps" || k === "extra") renderKeepFocus(k); else render();
 }
 function bump(id,k,delta){
-  var st = entryFor(id), min = k === "reps" ? 1 : 0;
-  st[k] = Math.max(min, Math.round(((Number(st[k]) || 0) + delta) * 100) / 100);
+  var st = entryFor(id), cur = Number(st[k]) || 0;
+  if(k === "weight") st.weight = Math.max(0, stepWeight(cur, delta));
+  else st[k] = Math.max(k === "reps" ? 1 : 0, Math.round((cur + delta) * 100) / 100);
   render();
 }
 function commit(id){
