@@ -2003,20 +2003,43 @@ if("serviceWorker" in navigator){
 }
 
 /* ---------------- opening titles ----------------
-   Plays once per local day. It must never cost you access to the log, so
-   every failure path - file missing, decode error, autoplay refused by the
-   browser, a stalled first download - dismisses it immediately. */
-const SPLASH_KEY = "hitlog.splash";
-const SPLASH_MAX_MS = 9000;   // ceiling only; must outlast the clip itself
+   Plays on a cold start that follows a real absence. The script only runs at
+   all on a fresh document, so merely exiting the app can never trigger it -
+   but the phone evicts a backgrounded PWA on its own, and iOS often reloads
+   one on resume, and neither of those is you reopening the app. The quiet
+   period is what separates the two.
+
+   It must never cost you access to the log, so every failure path - file
+   missing, decode error, autoplay refused, a stalled download - dismisses
+   it immediately. */
+const SPLASH_KEY = "hitlog.splash";   // ms timestamp of last activity
+const SPLASH_GAP_MS = 30 * 60 * 1000; // absence that earns another play
+const SPLASH_MAX_MS = 9000;           // ceiling only; must outlast the clip
+
+function touchSeen(){ try{ localStorage.setItem(SPLASH_KEY, String(Date.now())); }catch(e){} }
+/* The clock has to keep running whether or not the intro played, or a long
+   uninterrupted session would later read as a long absence. */
+function watchSeen(){
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "hidden") touchSeen();
+  });
+  window.addEventListener("pagehide", touchSeen);
+  setInterval(function(){ if(document.visibilityState === "visible") touchSeen(); }, 60000);
+}
+
 function playSplash(){
   var box = document.getElementById("splash"), vid = document.getElementById("splashVid");
   if(!box || !vid) return;
-  /* today() is local-time, so the day rolls over at local midnight. A storage
-     failure reads as "already seen" - the quiet option. */
-  try{ if(localStorage.getItem(SPLASH_KEY) === today()) return; }catch(e){ return; }
-  /* Marked before playing, not after: a crash or a force-quit part way in
-     should cost you that day's intro, not replay it on every open. */
-  try{ localStorage.setItem(SPLASH_KEY, today()); }catch(e){}
+  var last;
+  /* This key held a "YYYY-MM-DD" string in the daily version. Number() makes
+     that NaN, which falls to 0 and reads as never-seen - so the switch just
+     plays once and starts keeping time, with nothing to migrate.
+     A storage failure reads as recently-seen: the quiet option. */
+  try{ last = Number(localStorage.getItem(SPLASH_KEY)) || 0; }catch(e){ return; }
+  /* Stamped before playing, not after: a force-quit part way through should
+     cost you that play, not hand you the intro again on every reopen. */
+  touchSeen();
+  if(Date.now() - last < SPLASH_GAP_MS) return;
 
   var done = false, timer;
   function end(){
@@ -2065,6 +2088,7 @@ function playSplash(){
   }
   render();
   playSplash();
+  watchSeen();
 })();
 </script>
 </body>
