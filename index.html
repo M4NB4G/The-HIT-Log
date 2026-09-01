@@ -68,8 +68,10 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 /* Session-clock readout under the hero. Reads the same way as the chips -
    inside the window is green - against the between-sessions window instead
    of the per-body-part one. */
-.dueline{margin-top:14px;padding:9px 13px;border-radius:100px;font-size:12.5px;font-weight:500;
-  background:var(--surface-2);color:var(--txt-2);text-align:center}
+.dueline{margin-top:14px;padding:9px 14px;border-radius:16px;font-size:12.5px;font-weight:500;
+  line-height:1.35;background:var(--surface-2);color:var(--txt-2);text-align:center}
+/* Ranges and counts must not break mid-token. */
+.nb{white-space:nowrap}
 .dueline.ready{background:var(--green-c);color:var(--green-on)}
 .dueline.late{background:var(--amber-c);color:var(--amber-on)}
 
@@ -88,7 +90,10 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 
 /* ---- readiness chips ---- */
 .sec-h{font-size:13px;font-weight:500;color:var(--txt-2);margin:22px 0 10px}
-.ready{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+/* Named for what it holds, not for a state. As ".ready" this collided with
+   the "ready" state modifier that windowState() puts on .dueline, quietly
+   turning that banner into a 96px-column grid and breaking its text apart. */
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
 .chip{background:var(--surface);border-radius:12px;padding:10px 11px;box-shadow:var(--e1)}
 .chip .g{font-size:11px;color:var(--txt-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chip .d{font-family:var(--mono);font-size:17px;font-weight:500;margin-top:2px;color:var(--txt)}
@@ -803,9 +808,11 @@ function rotation(){ return S.instances[S.active].rotation || ["A","B","C"]; }
 function restSpec(){ return S.instances[S.active].rest || {interSession:[6,8],perCode:[18,24],primary:"perCode"}; }
 function groupWindow(){ return restSpec().perCode || [18,24]; }
 function sessionWindow(){ return restSpec().interSession || [6,8]; }
+/* The en dash is a line-break opportunity, so "6–8 days" was splitting after
+   the dash and leaving a dangling "6–" at the end of a line. */
 function winText(w){
-  if(w[0] !== w[1]) return w[0]+"–"+w[1]+" days";
-  return w[0] === 1 ? "1 day" : w[0]+" days";
+  if(w[0] !== w[1]) return '<span class="nb">'+w[0]+"–"+w[1]+" days</span>";
+  return w[0] === 1 ? "1 day" : '<span class="nb">'+w[0]+" days</span>";
 }
 
 /* How a gap of n days sits against a [lo,hi] window.
@@ -1138,7 +1145,7 @@ function viewToday(){
     + '<div class="dueline '+dueCls+'">'+due+'</div>'
     + '<button class="btn-start" onclick="startSession(\''+code+'\','+cycle+')">Start workout '+code+'</button></section>'
     + '<div class="sec-h">Days since trained &middot; target '+winText(gw)+'</div>'
-    + '<div class="ready">'+chips+'</div>';
+    + '<div class="chips">'+chips+'</div>';
 }
 
 function viewSession(d){
