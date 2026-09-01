@@ -358,9 +358,11 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   justify-content:center;opacity:1;transition:opacity .32s ease}
 .splash[hidden]{display:none}
 .splash.out{opacity:0;pointer-events:none}
-/* 9:16 source on a 9:16 screen - cover fills it without letterboxing, and
-   crops gracefully rather than pillarboxing if the window is ever wider. */
-.splash video{width:100%;height:100%;object-fit:cover}
+/* contain, not cover. The clip is 9:16 but phones are taller than that now
+   - about 0.46 against its 0.563 - so covering the screen scaled it up a
+   fifth and took ~9% off each side, which crops the title card's text.
+   Letterboxing is invisible against the black background above. */
+.splash video{width:100%;height:100%;object-fit:contain}
 .splash .skip{position:absolute;top:calc(14px + env(safe-area-inset-top));
   right:calc(14px + env(safe-area-inset-right));min-height:36px;padding:0 15px;
   border-radius:100px;background:rgba(0,0,0,.42);color:#fff;font-size:13px;font-weight:500;
