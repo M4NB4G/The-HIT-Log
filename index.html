@@ -1385,6 +1385,10 @@ function viewHistory(){
             + (sub ? '<span class="se sub">submax</span>'
                : ew !== "clean" ? '<span class="se">'+esc(ew)+'</span>' : '')+'</div>'
             + (x.note ? '<div class="set-note">'+esc(x.note)+'</div>' : ''); }).join("")
+      /* Sits inside the collapsed body, not the header row, so reaching it
+         takes a deliberate tap rather than a mis-hit on the session itself.
+         rev is S.sessions reversed, so undo the index to address the store. */
+      + '<div class="mini-row"><button class="mini warn" onclick="deleteSession('+(S.sessions.length-1-i)+')">Delete this session</button></div>'
       + '</div></article>';
   }).join("");
 }
@@ -1716,6 +1720,15 @@ function finishSession(){
   S.sessions.push(sess);
   S.sessions.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
   S.draft = null; save(); toast("Session saved"); tab = "history"; render();
+}
+/* Remove one saved session. A workout finished by accident used to be
+   permanent short of erasing everything, and it goes on skewing the PRs and
+   the rest windows for as long as it sits there. */
+function deleteSession(idx){
+  var s = S.sessions[idx]; if(!s) return;
+  if(!confirm("Delete workout "+s.workout+" from "+fmtDate(s.date)+" and its "
+    + s.sets.length+" set"+(s.sets.length === 1 ? "" : "s")+"?\n\nThis cannot be undone.")) return;
+  S.sessions.splice(idx, 1); save(); toast("Session deleted"); render();
 }
 function swapAlt(from,to){
   S.draft.order = S.draft.order.map(function(x){ return x === from ? to : x; });
