@@ -350,9 +350,32 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.gold{background:var(--amber-btn)}
 .hide{display:none!important}
+
+/* ---- opening titles ----
+   Covers the app for one clip on the first open of each day. The app renders
+   underneath while it plays, so dismissing it lands on a ready screen. */
+.splash{position:fixed;inset:0;z-index:100;background:#000;display:flex;align-items:center;
+  justify-content:center;opacity:1;transition:opacity .32s ease}
+.splash[hidden]{display:none}
+.splash.out{opacity:0;pointer-events:none}
+/* 9:16 source on a 9:16 screen - cover fills it without letterboxing, and
+   crops gracefully rather than pillarboxing if the window is ever wider. */
+.splash video{width:100%;height:100%;object-fit:cover}
+.splash .skip{position:absolute;top:calc(14px + env(safe-area-inset-top));
+  right:calc(14px + env(safe-area-inset-right));min-height:36px;padding:0 15px;
+  border-radius:100px;background:rgba(0,0,0,.42);color:#fff;font-size:13px;font-weight:500;
+  border:1px solid rgba(255,255,255,.34)}
 </style>
 </head>
 <body>
+
+<!-- Opening titles. hidden by default so a day that has already had its
+     play never paints it, not even for a frame. -->
+<div class="splash" id="splash" hidden>
+  <video id="splashVid" src="intro.mp4" muted playsinline webkit-playsinline
+         preload="auto" disablepictureinpicture></video>
+  <button class="skip" type="button">Skip</button>
+</div>
 
 <header class="top">
   <span class="mark" id="topMark">A</span>
@@ -1977,6 +2000,60 @@ if("serviceWorker" in navigator){
   });
 }
 
+/* ---------------- opening titles ----------------
+   Plays once per local day. It must never cost you access to the log, so
+   every failure path - file missing, decode error, autoplay refused by the
+   browser, a stalled first download - dismisses it immediately. */
+const SPLASH_KEY = "hitlog.splash";
+const SPLASH_MAX_MS = 9000;   // ceiling only; must outlast the clip itself
+function playSplash(){
+  var box = document.getElementById("splash"), vid = document.getElementById("splashVid");
+  if(!box || !vid) return;
+  /* today() is local-time, so the day rolls over at local midnight. A storage
+     failure reads as "already seen" - the quiet option. */
+  try{ if(localStorage.getItem(SPLASH_KEY) === today()) return; }catch(e){ return; }
+  /* Marked before playing, not after: a crash or a force-quit part way in
+     should cost you that day's intro, not replay it on every open. */
+  try{ localStorage.setItem(SPLASH_KEY, today()); }catch(e){}
+
+  var done = false, timer;
+  function end(){
+    if(done) return;
+    done = true; clearTimeout(timer);
+    box.classList.add("out");
+    setTimeout(function(){ box.hidden = true; try{ vid.pause(); }catch(e){} }, 340);
+  }
+  box.hidden = false;
+  box.addEventListener("click", end);          // tap anywhere, not just the button
+  vid.addEventListener("ended", end);
+  vid.addEventListener("error", end);
+  /* Backgrounding the app pauses the clip, so "ended" would never arrive and
+     you would come back to a stale intro sitting over the log. Nobody is
+     watching something they switched away from. Guarded on the clip having
+     actually started, so a visibility flicker during launch cannot kill it
+     before the first frame. */
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "hidden" && vid.currentTime > 0) end();
+  });
+  timer = setTimeout(end, SPLASH_MAX_MS);      // hard ceiling if it stalls
+
+  /* A play() issued before the first frame has arrived gets refused even
+     where autoplay is permitted, so one bare attempt is not proof that the
+     browser said no. Try again once there is data to show; if that is
+     refused too, take the hint and get out of the way. */
+  var retried = false;
+  function attempt(){
+    var p = vid.play();
+    if(!p || !p.catch) return;
+    p.catch(function(){
+      if(retried) return end();
+      retried = true;
+      vid.addEventListener("canplay", attempt, {once:true});
+    });
+  }
+  attempt();
+}
+
 (function(){
   var btns = document.querySelectorAll(".nav button");
   for(var i=0;i<btns.length;i++){
@@ -1985,6 +2062,7 @@ if("serviceWorker" in navigator){
     });
   }
   render();
+  playSplash();
 })();
 </script>
 </body>

@@ -10,7 +10,7 @@
 
    Bump CACHE whenever you change the shell; the activate handler drops old ones.
 */
-const CACHE = "hitlog-v14";
+const CACHE = "hitlog-v15";
 const SHELL = [
   "./",
   "./index.html",
@@ -19,7 +19,8 @@ const SHELL = [
   "./icon-512.png",
   "./icon-maskable-512.png",
   "./apple-touch-icon.png",
-  "./favicon.png"
+  "./favicon.png",
+  "./intro.mp4"
 ];
 
 var PAGE = "./index.html";
