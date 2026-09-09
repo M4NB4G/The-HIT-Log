@@ -10,7 +10,7 @@
 
    Bump CACHE whenever you change the shell; the activate handler drops old ones.
 */
-const CACHE = "hitlog-v17";
+const CACHE = "hitlog-v19";
 const SHELL = [
   "./",
   "./index.html",
@@ -22,6 +22,16 @@ const SHELL = [
   "./favicon.png",
   "./intro.mp4"
 ];
+
+/* The app bar photos. Numbered so this stays a count rather than a list -
+   keep MARK_COUNT here in step with the one in index.html. Precached rather
+   than left to the runtime handler so tomorrow's pick is already on the phone
+   when the gym has no signal; a few KB each, and c.add below shrugs off any
+   number that runs past the end of the folder. */
+const MARK_COUNT = 5;
+for (var mi = 1; mi <= MARK_COUNT; mi++) {
+  SHELL.push("./marks/" + String(mi).padStart(2, "0") + ".jpg");
+}
 
 var PAGE = "./index.html";
 

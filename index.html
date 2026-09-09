@@ -45,7 +45,11 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .top{position:sticky;top:0;z-index:20;background:var(--bg);
   padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;gap:12px}
 .top .mark{width:34px;height:34px;border-radius:10px;background:var(--blue-c);color:var(--blue);
-  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 34px}
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:0 0 34px;
+  position:relative;overflow:hidden}
+/* Covers the letter rather than replacing it, so a photo that never arrives
+   leaves the badge as it always was. */
+.top .mark .pic{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .top h1{margin:0;font-size:20px;font-weight:500;letter-spacing:-.01em}
 .top .sub{font-family:var(--mono);font-size:12px;color:var(--txt-3);margin-left:auto}
 .wrap{padding:0 16px 16px;max-width:600px;margin:0 auto}
@@ -457,7 +461,7 @@ html.splash-on,html.splash-on body{background:#000}
 </div>
 
 <header class="top">
-  <span class="mark" id="topMark">A</span>
+  <span class="mark" id="topMark"><span id="topMarkLetter">A</span><img class="pic" id="topMarkPic" alt="" hidden></span>
   <h1>HIT Log</h1>
   <span class="sub" id="topSub"></span>
 </header>
@@ -557,7 +561,16 @@ const LIB = {
   declinebb:  {n:"Decline Barbell Press",     g:"Chest",           rr:"6-10",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""},
   crunch:     {n:"Lying Crunch",              g:"Abs",             rr:"12-20", mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""},
   hangleg:    {n:"Hanging Leg Raise",         g:"Abs",             rr:"8-15",  mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""},
-  revcrunch:  {n:"Reverse Crunch",            g:"Abs",             rr:"12-20", mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""}
+  revcrunch:  {n:"Reverse Crunch",            g:"Abs",             rr:"12-20", mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""},
+  /* ---- called for by the two Heavy Duty routines ---- */
+  /* One dumbbell, one side at a time, so mult stays 1: the load on the set is
+     the dumbbell, not two of them. */
+  onearmrow:  {n:"One-Arm Dumbbell Row",      g:"Back",            rr:"6-12",  mult:1, step:5,  unit:"one dumbbell",     baseSet:"", baseOn:""},
+  uprightrow: {n:"Upright Row",               g:"Traps",           rr:"6-12",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""},
+  /* Filed under the group the deadlift already uses rather than opening a
+     near-duplicate "Erectors" chip beside it. */
+  hyper:      {n:"Hyperextension",            g:"Posterior Chain", rr:"8-15",  mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""},
+  bbincline:  {n:"Incline Barbell Press",     g:"Chest",           rr:"6-10",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""}
 };
 
 /* One user's archived lifts used to be hardcoded here and seeded into any
@@ -582,6 +595,21 @@ var Y2 = [{role:"top"},{role:"working",progression:"follow",loadFactor:0.9}];
 var YL = [{role:"top",rrAlt:["8-10","15-20"]},{role:"working",progression:"follow",loadFactor:0.9,rrAlt:["8-10","15-20"]}];
 var YC = [{role:"top",rr:"12-20"},{role:"working",progression:"follow",loadFactor:0.9,rr:"12-20"}];
 var P2 = [{role:"top",rr:"8-12"},{role:"working",progression:"follow",loadFactor:0.9,rr:"8-12"}];
+
+/* Heavy Duty Origins: 6-9 reps, and the weight goes up 10% once nine come up
+   (p.50, point 5). O1 is a slot done once, O2 a cycle run twice. The second
+   run is not a back-off - it is the same pair again, at the same load - so it
+   carries no loadFactor; it follows set 1 only so that the pair progresses off
+   the first run rather than the tired one. */
+var O1 = [{role:"top", rr:"6-9", pct:10}];
+var O2 = [{role:"top", rr:"6-9", pct:10},
+          {role:"working", progression:"follow", rr:"6-9", pct:10}];
+
+/* Heavy Duty 1993: one set, and 10% once twelve reps come up (p.56, point 6).
+   The range reads 6-12 because that is the rule stated as the app runs it -
+   pick a load you fail at between six and ten, and move up at twelve. Written
+   as 6-10 the app would raise the weight two reps early. */
+var H1 = [{role:"top", rr:"6-12", pct:10}];
 
 /* Break-in: submaximal by prescription, and no progression at all. These are
    the only sets in the app that are not taken to failure - the book is
@@ -748,6 +776,72 @@ const TEMPLATES = {
                {ex:"pushdown",sets:P2},{ex:"ezext",sets:P2}]}
     }
   },
+  mentzer_origins:{
+    name:"Mentzer Heavy Duty Origins",
+    blurb:"Mentzer's earliest published routine, from 1978. A two-way split trained four days a week and built on pre-exhaust cycles - an isolation movement straight into a compound one with no rest in between. Considerably more work than the routines he arrived at later.",
+    structure:"Pre-exhaust cycles taken to failure at 6-9 reps. Reach nine and the load goes up 10%.",
+    source:"Mentzer, Heavy Duty Origins, pp.48-50. Toe raises are written as 2-3 sets and are set to 2 here; the incline press is written as barbell or dumbbell and is set to dumbbells.",
+    adapted:false, rotation:["A","B"],
+    rest:{interSession:[1,2],perCode:[3,4],primary:"perCode"},
+    days:{
+      A:{focus:"Legs, Chest & Triceps",
+         note:"Monday and Thursday. Zero rest between the two exercises of a cycle: leg extension into leg press, flyes into incline press, pressdown into dips. Chest and triceps run their cycle twice. On squats the book asks for a weight good for about ten reps, stopped at positive failure rather than carried on into negatives.",
+         list:[{ex:"legext",sets:O1,link:"preexhaust"},
+               {ex:"legpress",sets:O1},
+               {ex:"bbsquat",sets:O1},
+               {ex:"legcurl",sets:O1},
+               {ex:"stdcalf",sets:O2},
+               {ex:"fly",sets:O2,link:"preexhaust"},
+               {ex:"incline",sets:O2},
+               {ex:"pushdown",sets:O2,link:"preexhaust"},
+               {ex:"dips",sets:O2}]},
+      B:{focus:"Back, Traps, Delts & Biceps",
+         note:"Tuesday and Friday. Zero rest between the two exercises of a cycle: stiff-arm pulldown into pulldown, shrug into upright row, lateral into press behind neck, curl into chins. Every cycle here runs twice.",
+         list:[{ex:"sapd",sets:O2,link:"preexhaust"},
+               {ex:"pulldown",sets:O2},
+               {ex:"onearmrow",sets:O2},
+               {ex:"shrug",sets:O2,link:"preexhaust"},
+               {ex:"uprightrow",sets:O2},
+               {ex:"lateral",sets:O2,link:"preexhaust"},
+               {ex:"pbn",sets:O2},
+               {ex:"bentlat",sets:O2},
+               {ex:"bbcurl",sets:O2,link:"preexhaust"},
+               {ex:"chins",sets:O2}]}
+    }
+  },
+  mentzer_hd93:{
+    name:"Mentzer Heavy Duty 1993",
+    blurb:"Three workouts turned over every other day, with two full days off at the end of each cycle. One set per exercise, the heaviest pairs run as supersets. The routine fifteen years of paring down produced.",
+    structure:"One all-out set per exercise. Pick a load you fail at between 6 and 10 reps; reach 12 and it goes up 10%.",
+    source:"Mentzer, Heavy Duty (Legacy Edition), pp.55-57. Where the book offers a choice of movement the first named is used; the increase is given as 10-20% and the lower end is used here.",
+    adapted:false, rotation:["A","B","C"],
+    rest:{interSession:[2,3],perCode:[7,7],primary:"interSession"},
+    days:{
+      A:{focus:"Chest, Delts & Triceps",
+         note:"Day 1. Flyes into incline press, and the triceps isolation into dips, are supersets - not even three seconds between them. Cable crossover or pec deck substitutes for the flyes; pressdowns or a triceps machine for the French press.",
+         list:[{ex:"fly",sets:H1,link:"preexhaust"},
+               {ex:"incline",sets:H1},
+               {ex:"lateral",sets:H1},
+               {ex:"bentlat",sets:H1},
+               {ex:"ezext",sets:H1,link:"preexhaust"},
+               {ex:"dips",sets:H1}]},
+      B:{focus:"Back, Traps & Biceps",
+         note:"Day 2. Pullover into pulldown is a superset. The erector slot is hyperextensions or deadlifts - swap it if you would rather pull.",
+         list:[{ex:"pullover",sets:H1,link:"preexhaust"},
+               {ex:"pulldown",sets:H1},
+               {ex:"bbrow",sets:H1},
+               {ex:"shrug",sets:H1},
+               {ex:"hyper",sets:H1},
+               {ex:"bbcurl",sets:H1}]},
+      C:{focus:"Legs & Abs",
+         note:"Day 3. Leg extension into the compound movement is a superset, and the book alternates leg press and squat from one leg workout to the next - the slot does that on its own. Two full days off after this one.",
+         list:[{ex:"legext",sets:H1,link:"preexhaust"},
+               {alt:["legpress","bbsquat"],sets:H1},
+               {ex:"legcurl",sets:H1},
+               {ex:"stdcalf",sets:H1},
+               {ex:"situp",sets:H1}]}
+    }
+  },
   mentzer_breakin:{
     name:"Mentzer Break-In",
     blurb:"Five consecutive days of one easy set per exercise, for a beginner or anyone coming back from a layoff. Nothing here is taken to failure and no weight goes up — that is the point, not a shortcut.",
@@ -1077,8 +1171,23 @@ function stepWeight(cur, delta){
   if(cur % GRID !== 0) return delta > 0 ? Math.ceil(cur / GRID) * GRID : Math.floor(cur / GRID) * GRID;
   return cur + delta;
 }
-function bumpWeight(w, e){
-  var raw = w * (e.pct == null ? 5 : e.pct) / 100;
+/* How far a load moves when a jump is earned, as a percentage.
+   Templates pin this the way they pin rep ranges - Origins says 10% at nine
+   reps, the 1993 routine 10-20% at twelve - and until now the only source was
+   the exercise, so both would quietly have progressed at the library's 5%.
+   The library value stays the fallback for anything no slot pins down. */
+function activePct(id){
+  var d = S.draft;
+  if(d && d.slotMap && d.slotMap[id]){
+    var sd = d.slotMap[id].sets[0];
+    if(sd && sd.pct != null) return sd.pct;
+  }
+  var e = exOf(id);
+  return (e && e.pct != null) ? e.pct : 5;
+}
+function bumpWeight(w, e, pct){
+  var p = (pct == null) ? (e.pct == null ? 5 : e.pct) : pct;
+  var raw = w * p / 100;
   return snapWeight(w + Math.max(e.step, Math.round(raw / e.step) * e.step));
 }
 /** How the set ended.
@@ -1177,7 +1286,7 @@ function targetFor(id){
   var pr = bestFor(id), last = lastKnown(id);
   if(!pr) return {reps:lo, weight:null, bumped:false, pr:null, last:last, lo:lo, hi:hi};
   if(e.bw) return {reps:Math.min(pr.reps + 1, hi) === hi && pr.reps >= hi ? lo : pr.reps + 1, weight:null, bumped:false, pr:pr, last:last, lo:lo, hi:hi, bwEx:true};
-  if(pr.reps >= hi) return {reps:lo, weight:bumpWeight(pr.weight, e), bumped:true, pr:pr, last:last, lo:lo, hi:hi};
+  if(pr.reps >= hi) return {reps:lo, weight:bumpWeight(pr.weight, e, activePct(id)), bumped:true, pr:pr, last:last, lo:lo, hi:hi};
   return {reps:pr.reps + 1, weight:pr.weight, bumped:false, pr:pr, last:last, lo:lo, hi:hi};
 }
 /* An exercise is filed under one group but may train others - see `also` on
@@ -1639,7 +1748,7 @@ function card(d, id, i){
   else if(!t.pr){ cap = "No history - this set becomes the baseline."; }
   else if(t.bwEx){ cap = "Bodyweight exercise - add a load only if you use one."; }
   else if(reps < t.reps){ cap = (t.reps - reps)+" short of your PR: "+setText(e, t.pr.reps, t.pr.weight)+"."; }
-  else if(atTop){ cap = "Top of the range. Next session goes to "+bumpWeight(wt, e)+" lb."; capCls = "top"; }
+  else if(atTop){ cap = "Top of the range. Next session goes to "+bumpWeight(wt, e, activePct(id))+" lb."; capCls = "top"; }
   else if(reps === t.reps){ cap = "On target - beats your PR. "+(hi - reps)+" more earns the next weight jump."; capCls = "good"; }
   else { cap = "+"+(reps - t.reps)+" over target. "+(hi - reps)+" more earns the next weight jump."; capCls = "good"; }
 
@@ -2247,7 +2356,7 @@ function commit(id){
   var tail = extra ? " +"+extra+" "+endedWithDef(ew).unit : "";
   if(pr){
     toast("PR - "+setPlain(e, reps, weight)+tail
-      + (reps >= hi ? " - top of range, "+bumpWeight(weight, e)+" lb next time" : ""), true);
+      + (reps >= hi ? " - top of range, "+bumpWeight(weight, e, activePct(id))+" lb next time" : ""), true);
   } else if(submax){
     toast("Logged "+reps+" reps"+(weight ? " x "+weight : ""));
   } else if(role === "working"){
@@ -2255,7 +2364,7 @@ function commit(id){
   } else if(ew === "short"){
     toast("Logged "+reps+" x "+weight+" (short of failure - target unchanged)");
   } else {
-    toast(reps >= hi ? "Top of range"+tail+" - "+bumpWeight(weight, e)+" lb next time"
+    toast(reps >= hi ? "Top of range"+tail+" - "+bumpWeight(weight, e, activePct(id))+" lb next time"
                      : "Logged - "+reps+" x "+weight+tail, reps >= hi);
   }
   delete entry[id]; open_ = null; render();
@@ -2272,6 +2381,7 @@ function startSession(code, cycle){
       if(sd.progression) out.progression = sd.progression;
       if(sd.loadFactor) out.loadFactor = sd.loadFactor;
       if(sd.scheme && sd.scheme !== "failure") out.scheme = sd.scheme;
+      if(sd.pct != null) out.pct = sd.pct;
       if(rr) out.rr = rr;
       return out;
     });
@@ -2549,7 +2659,7 @@ function render(){
   if(!hasProgram()){
     if(nav) nav.classList.add("hide");
     document.getElementById("view").innerHTML = viewWelcome();
-    document.getElementById("topMark").textContent = "•";
+    document.getElementById("topMarkLetter").textContent = "•";
     document.getElementById("topSub").textContent = "choose a routine";
     return;
   }
@@ -2558,7 +2668,7 @@ function render(){
   if(tab !== "today") setAccent(activeCode);
   document.getElementById("view").innerHTML =
     tab === "today" ? viewToday() : tab === "history" ? viewHistory() : tab === "records" ? viewRecords() : viewData();
-  document.getElementById("topMark").textContent = activeCode;
+  document.getElementById("topMarkLetter").textContent = activeCode;
   document.getElementById("topSub").textContent = S.draft ? (S.draft.workout + " in progress") : ("next: " + nextWorkout().code);
   var btns = document.querySelectorAll(".nav button");
   for(var i=0;i<btns.length;i++) btns[i].setAttribute("aria-current", btns[i].dataset.tab === tab ? "page" : "false");
@@ -2615,6 +2725,49 @@ if("serviceWorker" in navigator){
   window.addEventListener("load", function(){
     navigator.serviceWorker.register("sw.js").catch(function(){ /* offline support unavailable */ });
   });
+}
+
+/* ---------------- app bar photo ----------------
+   The badge in the top left carries a photo instead of the workout letter.
+
+   Files are numbered rather than listed, so the set lives as one count here
+   and the same count in the service worker's precache, instead of two
+   hand-kept lists that drift apart the first time a photo is added.
+
+   The pick is made once a day and remembered. Rolling it inside render()
+   would have reshuffled the photo on every keystroke, because logging a
+   weight re-renders the whole view on each digit. */
+const MARK_KEY = "hitlog.mark";
+const MARK_COUNT = 5;    /* marks/01.jpg .. marks/05.jpg - must match what is in the folder */
+
+function markSrc(i){ return "marks/" + String(i).padStart(2,"0") + ".jpg"; }
+
+function pickMark(){
+  var st = null;
+  try{ st = JSON.parse(localStorage.getItem(MARK_KEY)); }catch(e){}
+  if(st && st.d === today() && st.i >= 1 && st.i <= MARK_COUNT) return st.i;
+  var i = 1 + Math.floor(Math.random() * MARK_COUNT);
+  /* One nudge rather than a loop: with a single photo in the folder there is
+     nothing else to land on and a retry loop would never end. */
+  if(st && i === st.i && MARK_COUNT > 1) i = 1 + (i % MARK_COUNT);
+  try{ localStorage.setItem(MARK_KEY, JSON.stringify({d:today(), i:i})); }catch(e){}
+  return i;
+}
+
+/* The letter sits underneath and is only covered once a photo has actually
+   decoded, so a missing file, a 404, or a first run with no signal leaves the
+   app bar exactly as it was rather than an empty coloured square.
+   A pick that fails is dropped from storage instead of being held for the
+   rest of the day, so a reload rolls again - which is what quietly repairs
+   the count above being set higher than the number of files present. */
+function showMark(){
+  var img = document.getElementById("topMarkPic");
+  if(!img || MARK_COUNT < 1) return;
+  img.addEventListener("load", function(){ img.hidden = false; });
+  img.addEventListener("error", function(){
+    try{ localStorage.removeItem(MARK_KEY); }catch(e){}
+  });
+  img.src = markSrc(pickMark());
 }
 
 /* ---------------- opening titles ----------------
@@ -2728,6 +2881,7 @@ function playSplash(){
   var rs = document.getElementById("rbarSkip");
   if(rs) rs.addEventListener("click", stopRest);
   render();
+  showMark();
   resumeRest();
   playSplash();
   watchSeen();
