@@ -121,6 +121,10 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .badge{font-size:10px;font-weight:600;letter-spacing:.04em;padding:4px 9px;border-radius:100px;
   background:var(--amber-c);color:var(--amber-on)}
 .badge.ok{background:var(--green-c);color:var(--green-on)}
+/* A personal best. Filled gold rather than another tonal chip: TOP and DONE
+   report a state, this one reports something that happened. */
+.badge.pr{background:linear-gradient(135deg,#F9AB00,#E37400);color:#fff;
+  box-shadow:0 1px 5px rgba(227,116,0,.45)}
 
 .cbody{border-top:1px solid var(--outline-soft);padding:16px}
 .bump{background:var(--amber-c);border-radius:12px;padding:12px 14px;margin-bottom:14px;
@@ -128,6 +132,22 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .bump b{font-family:var(--mono);font-weight:700}
 .lastline{display:flex;justify-content:space-between;font-size:12px;color:var(--txt-2);margin-bottom:3px}
 .lastline b{color:var(--txt);font-family:var(--mono);font-weight:500}
+/* A set already logged this session. The two controls are what makes a
+   mistyped set fixable without throwing the whole workout away. */
+.lastline.logged{align-items:center;gap:8px;min-height:34px;margin-bottom:1px}
+.lastline .acts{display:flex;gap:6px;flex:0 0 auto}
+.sx{width:30px;height:30px;flex:0 0 30px;border-radius:50%;border:1px solid var(--outline);
+  background:var(--surface);color:var(--txt-2);font-size:14px;line-height:1;display:flex;
+  align-items:center;justify-content:center;padding:0}
+.sx:active{background:var(--blue-c);color:var(--blue)}
+.sx.warn{color:var(--red)} .sx.warn:active{background:var(--red-c);color:var(--red)}
+.lastline.editing{background:var(--blue-c);border-radius:9px;padding:2px 6px;
+  margin:0 -6px 1px;color:var(--blue-on)}
+/* Inline PR mark on a set line - the card badge's gold, sized to sit in a
+   line of text. */
+.prm{display:inline-block;background:linear-gradient(135deg,#F9AB00,#E37400);color:#fff;
+  font-size:9px;font-weight:700;letter-spacing:.05em;padding:2px 6px;border-radius:100px;
+  vertical-align:1px;font-family:var(--sans)}
 .targline{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--blue);margin-bottom:12px}
 
 /* rep track */
@@ -201,6 +221,48 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   font-size:13px;color:var(--blue);margin-top:6px;font-weight:500}
 .addbar:active{background:var(--blue-c)}
 
+/* ---- rest timer ----
+   Lives on top of the nav rather than inside the view, so it survives a
+   re-render and follows you between tabs while it counts down. */
+.rbar{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:100px;
+  background:var(--txt);color:#fff;box-shadow:var(--e2)}
+.rbar[hidden]{display:none}
+.rbar .rt{font-family:var(--mono);font-size:20px;font-weight:600;letter-spacing:-.5px;
+  flex:0 0 62px;text-align:center}
+.rbar .rl{flex:1;min-width:0;font-size:12px;opacity:.78}
+.rbar button{min-height:36px;padding:0 13px;border-radius:100px;font-size:12px;font-weight:500;
+  color:#fff;border:1px solid rgba(255,255,255,.34);flex:0 0 auto}
+.rbar button:active{background:rgba(255,255,255,.18)}
+/* Rest is up. A held colour change, not a flash, so a glance from the rack
+   still answers the question a minute after the alarm was missed. */
+.rbar.done{background:var(--green)}
+body.resting{padding-bottom:calc(146px + env(safe-area-inset-bottom))}
+
+/* Rest-timer settings, Program tab. */
+.sw{display:flex;align-items:center;gap:12px;min-height:var(--tap);cursor:pointer}
+.sw input{position:absolute;opacity:0;width:0;height:0}
+.sw .tr{flex:0 0 46px;height:26px;border-radius:100px;background:var(--surface-3);
+  position:relative;transition:background .15s}
+.sw .tr::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+  background:var(--surface);box-shadow:var(--e1);transition:transform .15s}
+.sw input:checked + .tr{background:var(--blue)}
+.sw input:checked + .tr::after{transform:translateX(20px)}
+.sw input:focus-visible + .tr{outline:2px solid var(--blue);outline-offset:2px}
+.sw .lb{font-size:13.5px;color:var(--txt)}
+.tset{background:var(--surface-2);border-radius:14px;padding:10px 8px;margin-top:6px}
+.tset .lbl{font-size:11px;font-weight:500;color:var(--txt-2);text-align:center}
+.tset .ctl{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:6px}
+.tset .ctl button{width:38px;height:38px;flex:0 0 38px;border-radius:50%;background:var(--surface);
+  color:var(--blue);font-size:20px;line-height:1;box-shadow:var(--e1)}
+.tset .tv{font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-1px;
+  min-width:92px;text-align:center}
+.tpre{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0 12px}
+.tpre button{min-height:36px;border-radius:100px;border:1px solid var(--outline);background:var(--surface);
+  font-family:var(--mono);font-size:12px;color:var(--txt-2)}
+.tpre button.on{border-color:var(--blue);background:var(--blue-c);color:var(--blue);font-weight:600}
+.tnote{font-size:11.5px;line-height:1.5;color:var(--txt-3);margin:0}
+
 /* ---- bottom nav (M3 pill indicator) ---- */
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--surface);
   border-top:1px solid var(--outline-soft);padding:8px 0 calc(8px + env(safe-area-inset-bottom))}
@@ -231,6 +293,14 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 /* Submaximal by prescription - a statement of fact, not a shortfall. */
 .set .se.sub{width:56px;font-size:11px;color:var(--blue)}
 .set-note{font-size:12px;color:var(--txt-3);padding:0 0 9px;font-style:italic}
+/* Correcting a saved set. The log card's own controls, dropped into the
+   history row, so a number entered wrong six sessions ago is still fixable. */
+.set .sx{align-self:center}
+.set-edit{background:var(--surface-2);border-radius:14px;padding:14px;margin:8px 0}
+.set-edit .hn{font-size:14px;font-weight:500}
+.set-edit .hd{font-family:var(--mono);font-size:11px;color:var(--txt-3);margin-top:2px}
+.set-edit .steppers{margin-top:10px}
+.set-edit .st{background:var(--surface)}
 
 .panel{background:var(--surface);border-radius:var(--r);box-shadow:var(--e1);padding:18px;margin-bottom:12px}
 .panel h3{margin:0 0 5px;font-size:15px;font-weight:500;color:var(--txt)}
@@ -349,6 +419,7 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   opacity:0;pointer-events:none;transition:all .2s;z-index:50;white-space:nowrap;box-shadow:var(--e2)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.gold{background:var(--amber-btn)}
+.resting .toast{bottom:calc(158px + env(safe-area-inset-bottom))}
 .hide{display:none!important}
 
 /* ---- opening titles ----
@@ -357,6 +428,12 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .splash{position:fixed;inset:0;z-index:100;background:#000;display:flex;align-items:center;
   justify-content:center;opacity:1;transition:opacity .32s ease}
 .splash[hidden]{display:none}
+/* The white strip above the clip was the status bar, not the video. iOS in
+   standalone mode paints that strip from the page canvas, and this canvas is
+   near-white; Android paints it from theme-color, which playSplash already
+   borrows. Take the canvas for the run too, and hand it back the instant the
+   fade starts so the app never shows through onto black. */
+html.splash-on,html.splash-on body{background:#000}
 .splash.out{opacity:0;pointer-events:none}
 /* contain, not cover. The clip is 9:16 but phones are taller than that now
    - about 0.46 against its 0.563 - so covering the screen scaled it up a
@@ -392,6 +469,14 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   <button data-tab="records"><span class="ic"><svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/><path d="M9 20h6M12 14v6"/></svg></span>Records</button>
   <button data-tab="data"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></span>Program</button>
 </nav>
+<!-- Rest timer. Outside #view so a re-render cannot disturb the countdown,
+     and hidden until a set is logged with the timer switched on. -->
+<div class="rbar" id="rbar" hidden>
+  <span class="rt" id="rbarTime">0:00</span>
+  <span class="rl" id="rbarLabel">Rest</span>
+  <button class="ra" id="rbarAdd" type="button">+30s</button>
+  <button class="rs" id="rbarSkip" type="button">Skip</button>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -432,7 +517,10 @@ const LIB = {
   flat:     {n:"Incline DB Press (30\u00B0)", g:"Chest",           rr:"6-10",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"",       baseOn:"",           warn:"Set the bench to 30-40\u00B0, not your usual low angle. First set sets the baseline."},
   pulldown: {n:"Palms-Up Pulldown",         g:"Back",            rr:"6-12",  mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
   row:      {n:"Seated Cable Row",          g:"Back",            rr:"6-12",  mult:1, step:10, unit:"V-handle",         baseSet:"", baseOn:""},
-  deadlift: {n:"Barbell Deadlift",          g:"Posterior Chain", rr:"6-10",  mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:""},
+  /* `also` names groups a movement trains besides the one it is filed under.
+     The deadlift is posterior chain, but it is the heaviest trap work most
+     people do, so logging one has to reset the trap clock as well. */
+  deadlift: {n:"Barbell Deadlift",          g:"Posterior Chain", rr:"6-10",  mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:"", also:["Traps"]},
   legext:   {n:"Seated Leg Extension",      g:"Quads",           rr:"12-20", mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
   legpress: {n:"Leg Press",                 g:"Quads",           rr:"12-20", mult:1, step:20, unit:"total sled",       baseSet:"", baseOn:""},
   squat:    {n:"Smith Machine Squat",       g:"Quads",           rr:"12-20", mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:""},
@@ -689,6 +777,9 @@ const DEFAULT_PROGRAM = {
 };
 
 /* ---------------- storage ---------------- */
+/* Rest timer settings. Off until switched on in Program; two minutes is the
+   middle of the range these routines call for between all-out sets. */
+function REST_DEFAULT(){ return {on:false, secs:120}; }
 const KEY_V2 = "hitlog.v2";
 const KEY    = "hitlog.v3";
 let mem = null;
@@ -706,7 +797,8 @@ function blank(){
      session a fresh install logged back by a day. */
   return {schema:3, dateMigrated:true,
           instances:{}, active:null,
-          sessions:[], draft:null, custom:{}, baselines:{}};
+          sessions:[], draft:null, custom:{}, baselines:{},
+          timer:REST_DEFAULT()};
 }
 /** False only on a fresh install, before a routine has been chosen. */
 function hasProgram(){
@@ -778,6 +870,10 @@ function load(){
   if(!d.sessions) d.sessions = [];
   /* Absent baselines means none, not "seed somebody else's". */
   if(!d.baselines) d.baselines = {};
+  /* Rest timer, added after the fact: off for anyone upgrading, because a
+     stopwatch nobody asked for going off in a gym is worse than no timer. */
+  if(!d.timer || typeof d.timer !== "object") d.timer = REST_DEFAULT();
+  if(typeof d.timer.secs !== "number" || !(d.timer.secs > 0)) d.timer.secs = REST_DEFAULT().secs;
   /* backfill rotation/rest for v3 instances created before step 4 */
   for(var ik in d.instances){ if(!d.instances[ik].rotation){
     var tmpl = TEMPLATES[d.instances[ik].source];
@@ -915,6 +1011,12 @@ function setText(e, reps, weight, extra){
   if(e && e.bw) return Number(weight) > 0 ? r + " &times; +" + weight + suffix(e) : r + " reps";
   return r + " &times; " + weight + (e ? suffix(e) : "");
 }
+/* setText writes markup. Toasts and confirm() take text, so they need the
+   same reading without the entities. */
+function setPlain(e, reps, weight){
+  if(e && e.bw) return Number(weight) > 0 ? reps + " \u00D7 +" + weight : reps + " reps";
+  return reps + " \u00D7 " + weight + (e && e.mult === 2 ? " ea" : "");
+}
 /* Which shelf a template sits on in the picker. Grouped by set structure
    because that is the decision you are actually making when you choose one,
    and it separates the break-in protocols by what they are rather than by
@@ -1008,27 +1110,65 @@ function endedClean(set){
   if(set.endedWith) return set.endedWith !== "short";
   return set.failure === "Yes" || !set.failure;
 }
-/** PR = most reps at the heaviest weight achieved. Weight takes priority. */
-function bestFor(id){
-  var e = exOf(id), best = null;
+/** PR = most reps at the heaviest weight achieved. Weight takes priority.
+    `at` says where in the log to stop counting, so one set can be judged
+    against what stood on record BEFORE it rather than against itself:
+      {s:i, x:j}  - everything saved up to set j of session i, no draft
+      {draft:k}   - everything saved, plus the draft sets before index k
+      null        - everything saved plus the whole draft
+    bestFor() is the plain "everything saved, ignore the draft" reading, and
+    it is what drives the next target. */
+function bestAt(id, at){
+  var e = exOf(id); if(!e) return null;
+  var best = null;
   function better(r, w, e1, date, seeded){
     var ew = w * e.mult, bw = best ? best.weight * e.mult : -1;
     if(!best || ew > bw || (ew === bw && r > best.reps))
       best = {reps:r, weight:w, e1:e1, date:date, seeded:seeded};
+  }
+  /* Submaximal sets are excluded here rather than in endedClean(): they carry
+     no ending to judge, and the load was chosen to stop short on purpose, so
+     they are not evidence of a best effort. */
+  function consider(x, date){
+    if(x.ex !== id || x.scheme === "submax") return;
+    if(endedClean(x) && (!x.role || x.role === "top")) better(x.reps, x.weight, x.e1, date, false);
   }
   var b = S.baselines[id];
   if(b && b.set){
     var m = b.set.match(/(\d+)\s*x\s*([\d.]+)/i);
     if(m) better(+m[1], +m[2], e1rm(+m[1], +m[2], e.mult), b.date, true);
   }
-  /* Submaximal sets are excluded here rather than in endedClean(): they carry
-     no ending to judge, and the load was chosen to stop short on purpose, so
-     they are not evidence of a best effort. */
-  setsFor(id).forEach(function(x){
-    if(x.scheme === "submax") return;
-    if(endedClean(x) && (!x.role || x.role === "top")) better(x.reps, x.weight, x.e1, x.date, false);
-  });
+  var stopS = (at && at.s != null) ? at.s : S.sessions.length;
+  for(var i = 0; i < S.sessions.length && i <= stopS; i++){
+    var ss = S.sessions[i], stopX = (at && at.s === i) ? at.x : ss.sets.length;
+    for(var j = 0; j < stopX && j < ss.sets.length; j++) consider(ss.sets[j], ss.date);
+  }
+  if(S.draft && at && at.draft != null){
+    for(var k = 0; k < at.draft && k < S.draft.sets.length; k++) consider(S.draft.sets[k], S.draft.date);
+  } else if(S.draft && !at){
+    S.draft.sets.forEach(function(x){ consider(x, S.draft.date); });
+  }
   return best;
+}
+function bestFor(id){ return bestAt(id, {s:S.sessions.length, x:0}); }
+/** Did this set raise the ceiling?
+    Two ways in, and they are the two the log already recognises: a heavier
+    load carried to at least the bottom of the range - the weight itself now
+    qualifies - or more reps at a load that qualified already. A set that
+    cannot move the target cannot set a record either: submaximal by
+    prescription, stopped short of failure, or a back-off following the top
+    set. `lo` is the qualifying rep count and `at` is the point in the log to
+    compare against; both belong to the caller, which is the only thing that
+    knows whether it is judging a set logged now or one corrected in history. */
+function isPR(id, set, at, lo){
+  if(!set || set.scheme === "submax" || !endedClean(set)) return false;
+  if(set.role && set.role !== "top") return false;
+  var e = exOf(id); if(!e) return false;
+  var best = bestAt(id, at);
+  if(!best) return set.reps >= lo;
+  var nw = set.weight * e.mult, bw = best.weight * e.mult;
+  if(nw > bw) return set.reps >= lo;
+  return nw === bw && set.reps > best.reps;
 }
 /** DOUBLE PROGRESSION: target derives from the PR (best set), not the last set. */
 function targetFor(id){
@@ -1040,9 +1180,14 @@ function targetFor(id){
   if(pr.reps >= hi) return {reps:lo, weight:bumpWeight(pr.weight, e), bumped:true, pr:pr, last:last, lo:lo, hi:hi};
   return {reps:pr.reps + 1, weight:pr.weight, bumped:false, pr:pr, last:last, lo:lo, hi:hi};
 }
+/* An exercise is filed under one group but may train others - see `also` on
+   the deadlift. The days-since-trained clock has to answer "when did this
+   body part last get worked", not "when did I last do an exercise filed
+   here", or the traps read as untrained through a year of deadlifting. */
+function trains(e, g){ return !!e && (e.g === g || (!!e.also && e.also.indexOf(g) > -1)); }
 function lastGroupDate(g){
   var d = null;
-  S.sessions.forEach(function(s){ s.sets.forEach(function(x){ var e = exOf(x.ex); if(e && e.g === g && (!d || s.date > d)) d = s.date; }); });
+  S.sessions.forEach(function(s){ s.sets.forEach(function(x){ if(trains(exOf(x.ex), g) && (!d || s.date > d)) d = s.date; }); });
   return d;
 }
 /* Focus label for a workout code. History lists sessions from every program,
@@ -1082,9 +1227,121 @@ function toast(m, gold){
   clearTimeout(tt); tt = setTimeout(function(){ t.className = "toast" + (gold ? " gold" : ""); }, 2200);
 }
 
+/* ============================================================ REST TIMER
+   Starts on the tap that logs a set, counts down the rest the trainee set in
+   Program, and makes a noise when it is up. Off unless switched on.
+
+   It lives outside #view and keeps its own interval, so a re-render cannot
+   disturb it and it follows you across tabs. The end time is an absolute
+   timestamp rather than a decrementing count: a phone that throttles timers
+   in the background then comes back with the right number on the clock
+   instead of one that stopped when the screen did. */
+var restEndsAt = 0, restTick = null, restRang = false, actx = null;
+
+function fmtClock(s){
+  s = Math.max(0, Math.round(s));
+  return Math.floor(s/60) + ":" + String(s % 60).padStart(2, "0");
+}
+/* One AudioContext, opened on the tap that starts the timer. Browsers only
+   let audio begin from a gesture, and a context unlocked by one is still
+   allowed to make noise when the countdown finishes two minutes later. */
+function primeAudio(){
+  if(!S.timer || !S.timer.on) return;
+  try{
+    var C = window.AudioContext || window.webkitAudioContext;
+    if(!C) return;
+    if(!actx) actx = new C();
+    if(actx.state === "suspended") actx.resume();
+  }catch(e){ actx = null; }
+}
+/* Three rising tones, synthesised rather than shipped as a file: nothing
+   extra to cache and it works in a basement with no signal. Vibration as
+   well, for a phone in a pocket or a gym that is louder than it is. */
+function alarm(){
+  try{
+    if(actx){
+      if(actx.state === "suspended") actx.resume();
+      [0, 0.42, 0.84].forEach(function(t, i){
+        var o = actx.createOscillator(), g = actx.createGain(), at = actx.currentTime + t;
+        o.type = "sine";
+        o.frequency.setValueAtTime(660 + i * 220, at);
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(0.3, at + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.34);
+        o.connect(g); g.connect(actx.destination);
+        o.start(at); o.stop(at + 0.36);
+      });
+    }
+  }catch(e){ /* no audio available - the bar still turns green */ }
+  try{ if(navigator.vibrate) navigator.vibrate([220, 120, 220, 120, 380]); }catch(e){}
+}
+function paintRest(){
+  var box = document.getElementById("rbar");
+  if(!box) return;
+  var left = (restEndsAt - Date.now()) / 1000;
+  var t = document.getElementById("rbarTime"), l = document.getElementById("rbarLabel");
+  if(t) t.textContent = fmtClock(left);
+  if(l) l.textContent = left > 0 ? "Rest" : "Rest is up";
+  box.classList.toggle("done", left <= 0);
+}
+function startRest(){
+  var s = S.timer;
+  if(!s || !s.on || !(s.secs > 0)) return;
+  restEndsAt = Date.now() + s.secs * 1000;
+  restRang = false;
+  var box = document.getElementById("rbar");
+  if(box) box.hidden = false;
+  document.body.classList.add("resting");
+  paintRest();
+  clearInterval(restTick);
+  restTick = setInterval(function(){
+    paintRest();
+    if(!restRang && Date.now() >= restEndsAt){ restRang = true; alarm(); }
+    /* Clear itself half a minute after the alarm rather than sitting over the
+       log for the rest of the workout. */
+    if(restRang && Date.now() > restEndsAt + 30000) stopRest();
+  }, 250);
+}
+function stopRest(){
+  clearInterval(restTick); restTick = null; restEndsAt = 0; restRang = false;
+  var box = document.getElementById("rbar");
+  if(box){ box.hidden = true; box.classList.remove("done"); }
+  document.body.classList.remove("resting");
+}
+function addRest(sec){
+  if(!restTick) return;
+  /* From now if the clock has already run out, so +30s means thirty more
+     seconds rather than thirty seconds ago. */
+  restEndsAt = Math.max(Date.now(), restEndsAt) + sec * 1000;
+  restRang = false;
+  var box = document.getElementById("rbar");
+  if(box) box.classList.remove("done");
+  paintRest();
+}
+function setTimerOn(v){
+  S.timer.on = !!v;
+  if(!S.timer.on) stopRest();
+  save(); render();
+}
+function setTimerSecs(v){
+  /* Quarter-minute steps, floor of 15s, ceiling of 15 minutes. */
+  S.timer.secs = Math.max(15, Math.min(900, Math.round(Number(v) / 15) * 15));
+  save(); render();
+}
+
 /* ---------------- ui state ---------------- */
 var tab = "today", open_ = null, pick = null, adding = false, editWO = null, addTo = null, newForm = false;
 var entry = {};
+/* Correcting a set that is already logged.
+   editingDraft  {ex, i} - a set in the session in progress, i counting that
+                           exercise's own sets in the order they were logged
+   histEdit      {s, x}  - a set in a saved session, by store index
+   histEntry             - the working values for that saved set
+   histOpen              - a saved session held open across a re-render, so
+                           correcting one set does not collapse the card
+   Without these a mistyped set was permanent: the only way out was deleting
+   the whole session, which took every other set down with it. */
+var editingDraft = null, histEdit = null, histEntry = null, histOpen = null;
 function entryFor(id, force){
   if(!entry[id] || force){
     var d = S.draft;
@@ -1220,9 +1477,13 @@ function card(d, id, i){
     return '<article class="card done"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">&#10003;</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
       + '<span class="r">'+summ+'</span></span>'
-      /* A submaximal set has no "top of range" to hit - reaching the prescribed
-         count is the whole job, not a personal best. */
-      + (!topSet.scheme && sew === "clean" && topSet.reps >= topHi
+      /* A PR outranks both of the others: TOP says the range was filled and
+         DONE says the work happened, but a record is the thing worth looking
+         up for. A submaximal set has no "top of range" to hit either - hitting
+         the prescribed count is the whole job, not a personal best. */
+      + (logged.some(function(s){ return s.pr; })
+          ? '<span class="badge pr">&#9733; PR</span>'
+          : !topSet.scheme && sew === "clean" && topSet.reps >= topHi
           ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
       + '</button></article>';
   }
@@ -1303,18 +1564,30 @@ function card(d, id, i){
       + (t.pr.seeded ? 'archived ' : '')+fmtDate(t.pr.date)+'</span></div>';
   }
 
-  /* Multi-set: show logged sets for partial progress */
+  /* Sets already logged, each with a way back into it. Reopening a finished
+     card is what makes this reachable after the last set of a slot. */
+  var editingHere = !!(editingDraft && editingDraft.ex === id);
   var loggedHtml = '';
   if(logged.length > 0){
     loggedHtml = logged.map(function(s,si){
-      return '<div class="lastline"><span>Set '+(si+1)+': <b>'+setText(e, s.reps, s.weight)+'</b>'
+      var mine = editingHere && editingDraft.i === si;
+      return '<div class="lastline logged'+(mine ? ' editing' : '')+'"><span>Set '+(si+1)+': <b>'
+        +setText(e, s.reps, s.weight)+'</b>'
         +(s.extra ? ' <b>+'+s.extra+'</b> '+esc(endedWithDef(s.endedWith).unit)
           : s.endedWith && s.endedWith !== "clean" ? ' ('+s.endedWith+')' : '')
-        +'</span><span>&#10003;</span></div>';
+        +(s.pr ? ' <span class="prm">PR</span>' : '')
+        +(mine ? ' &middot; editing' : '')
+        +'</span><span class="acts">'
+        +'<button class="sx" onclick="editDraftSet(\''+id+'\','+si+')" aria-label="edit set '+(si+1)+'">&#9998;</button>'
+        +'<button class="sx warn" onclick="deleteDraftSet(\''+id+'\','+si+')" aria-label="delete set '+(si+1)+'">&times;</button>'
+        +'</span></div>';
     }).join("");
   }
-  var setLabel = needed > 1 ? '<div class="targline" style="font-size:13px;color:var(--txt-2)">Set '+(logged.length+1)+' of '+needed
-    +(st.role === "working" ? ' &middot; working set' : ' &middot; top set')+'</div>' : '';
+  /* "Set 3 of 2" once the slot is full, so the count only runs while there is
+     still a prescribed set to log. */
+  var setLabel = needed > 1 && logged.length < needed
+    ? '<div class="targline" style="font-size:13px;color:var(--txt-2)">Set '+(logged.length+1)+' of '+needed
+      +(st.role === "working" ? ' &middot; working set' : ' &middot; top set')+'</div>' : '';
 
   return '<article class="card open"><button class="chead" onclick="toggle(\''+id+'\')">'
     + '<span class="rtile">'+(i+1)+'</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
@@ -1344,9 +1617,13 @@ function card(d, id, i){
     + '<div class="cap '+capCls+'">'+cap+'</div>'
     + '<div class="steppers">'
     + '<div class="st"><div class="lbl">Weight</div><div class="ctl">'
-    + '<button onclick="bump(\''+id+'\',\'weight\',-'+e.step+')" aria-label="less weight">&minus;</button>'
+    /* Always one 5 lb plate, whatever the machine's own increment is. The
+       step on the exercise is what the NEXT session moves by once a jump is
+       earned; these buttons are for saying what was actually lifted, and a
+       stack reading 185 cannot be entered in tens. */
+    + '<button onclick="bump(\''+id+'\',\'weight\',-'+GRID+')" aria-label="less weight">&minus;</button>'
     + '<input type="text" inputmode="decimal" value="'+st.weight+'" placeholder="&mdash;" oninput="setv(\''+id+'\',\'weight\',this.value)">'
-    + '<button onclick="bump(\''+id+'\',\'weight\','+e.step+')" aria-label="more weight">+</button>'
+    + '<button onclick="bump(\''+id+'\',\'weight\','+GRID+')" aria-label="more weight">+</button>'
     + '</div><div class="unit">'+esc(e.unit)+'</div></div>'
     + '<div class="st"><div class="lbl">Reps</div><div class="ctl">'
     + '<button onclick="bump(\''+id+'\',\'reps\',-1)" aria-label="fewer reps">&minus;</button>'
@@ -1371,9 +1648,12 @@ function card(d, id, i){
         + 'The '+st.reps+' is what sets your PR and moves the target.</div></div>'
       : '')
     + '<textarea class="note-in" rows="2" placeholder="'+(e.warn ? esc(e.warn) : "Notes")+'" oninput="setv(\''+id+'\',\'note\',this.value)">'+esc(st.note)+'</textarea>'
-    + '<button class="btn-log'+(atTop && st.role !== "working" ? ' top' : '')+'" onclick="commit(\''+id+'\')">'
-    +(needed > 1 ? 'Log set '+(logged.length+1)+' of '+needed : atTop ? "Log - top of range" : "Log set")+'</button>'
+    + '<button class="btn-log'+(atTop && st.role !== "working" && !editingHere ? ' top' : '')+'" onclick="commit(\''+id+'\')">'
+    +(editingHere ? 'Save set '+(editingDraft.i+1)
+      : needed > 1 && logged.length < needed ? 'Log set '+(logged.length+1)+' of '+needed
+      : atTop ? "Log - top of range" : "Log set")+'</button>'
     + '<div class="mini-row">'
+    + (editingHere ? '<button class="mini" onclick="cancelDraftEdit()">Cancel edit</button>' : '')
     + (partner ? '<button class="mini" onclick="swapAlt(\''+id+'\',\''+partner+'\')">Swap to '+esc(exOf(partner).n)+'</button>' : '')
     + '<button class="mini warn" onclick="dropToday(\''+id+'\')">Remove from today</button></div>'
     + '</div></article>';
@@ -1384,6 +1664,11 @@ function viewHistory(){
   if(!S.sessions.length) return empty("&#8801;", "No sessions yet.<br>Your first workout shows up here.");
   var rev = S.sessions.slice().reverse();
   return rev.map(function(s, i){
+    /* rev is S.sessions reversed; si addresses the store. */
+    var si = S.sessions.length - 1 - i;
+    /* The bodies are toggled straight on the DOM, so a re-render would
+       otherwise close the very session whose set is being corrected. */
+    var openBody = i === 0 || histOpen === si || (histEdit && histEdit.s === si);
     /* Gap compares like with like: the same code inside the same program.
        Workout A of one program and workout A of another are not the same
        session recurring. */
@@ -1398,24 +1683,65 @@ function viewHistory(){
       + '<span class="mm">'+(focus ? esc(focus)+' &middot; ' : '')+s.sets.length+' sets'
       + (gap !== null ? ' &middot; '+gap+'d gap' : '')
       + (from ? ' &middot; '+esc(from) : '')+'</span></span></button>'
-      + '<div class="body'+(i === 0 ? '' : ' hide')+'">'
-      + s.sets.map(function(x){ var e = exOf(x.ex);
+      + '<div class="body'+(openBody ? '' : ' hide')+'">'
+      + s.sets.map(function(x, xi){ var e = exOf(x.ex);
+          if(histEdit && histEdit.s === si && histEdit.x === xi) return histSetForm(si, xi, x);
           /* A submaximal set has no ending. Without this guard the fallback
              below reads its missing endedWith as "short" and badges it as a
              set the trainee quit early - the opposite of what happened. */
           var sub = x.scheme === "submax";
           var ew = sub ? "" : (x.endedWith || (x.failure === "Yes" ? "clean" : "short"));
-          return '<div class="set"><span class="sn">'+esc(e ? e.n : x.ex)+'</span>'
+          return '<div class="set"><span class="sn">'+esc(e ? e.n : x.ex)
+            + (x.pr ? ' <span class="prm">PR</span>' : '')+'</span>'
             + '<span class="sv">'+setText(e, x.reps, x.weight, x.extra)+'</span>'
             + (sub ? '<span class="se sub">submax</span>'
-               : ew !== "clean" ? '<span class="se">'+esc(ew)+'</span>' : '')+'</div>'
+               : ew !== "clean" ? '<span class="se">'+esc(ew)+'</span>' : '')
+            + '<button class="sx" onclick="editHistSet('+si+','+xi+')" aria-label="edit this set">&#9998;</button></div>'
             + (x.note ? '<div class="set-note">'+esc(x.note)+'</div>' : ''); }).join("")
       /* Sits inside the collapsed body, not the header row, so reaching it
          takes a deliberate tap rather than a mis-hit on the session itself.
          rev is S.sessions reversed, so undo the index to address the store. */
-      + '<div class="mini-row"><button class="mini warn" onclick="deleteSession('+(S.sessions.length-1-i)+')">Delete this session</button></div>'
+      + '<div class="mini-row"><button class="mini warn" onclick="deleteSession('+si+')">Delete this session</button></div>'
       + '</div></article>';
   }).join("");
+}
+
+/* The editor for one saved set. Deliberately the log card's own controls -
+   the same steppers, the same endings - so correcting a set is the same
+   gesture as entering one. */
+function histSetForm(si, xi, x){
+  var e = exOf(x.ex), st = histEntry;
+  if(!e || !st) return '';
+  var submax = st.scheme === "submax";
+  return '<div class="set-edit">'
+    + '<div class="hn">'+esc(e.n)+'</div>'
+    + '<div class="hd">was '+setPlain(e, x.reps, x.weight)+'</div>'
+    + '<div class="steppers">'
+    + '<div class="st"><div class="lbl">Weight</div><div class="ctl">'
+    + '<button onclick="bumpHist(\'weight\',-'+GRID+')" aria-label="less weight">&minus;</button>'
+    + '<input type="text" inputmode="decimal" value="'+st.weight+'" placeholder="&mdash;" oninput="setHist(\'weight\',this.value)">'
+    + '<button onclick="bumpHist(\'weight\','+GRID+')" aria-label="more weight">+</button>'
+    + '</div><div class="unit">'+esc(e.unit)+'</div></div>'
+    + '<div class="st"><div class="lbl">Reps</div><div class="ctl">'
+    + '<button onclick="bumpHist(\'reps\',-1)" aria-label="fewer reps">&minus;</button>'
+    + '<input type="text" inputmode="numeric" value="'+st.reps+'" oninput="setHist(\'reps\',this.value)">'
+    + '<button onclick="bumpHist(\'reps\',1)" aria-label="more reps">+</button>'
+    + '</div><div class="unit">range '+esc(rrLabel(e.rr))+'</div></div></div>'
+    + (submax ? '' : '<div class="fail-row">' + ENDED_WITH.map(function(ew){
+        return '<button aria-pressed="'+(st.endedWith === ew.v)+'" onclick="setHist(\'endedWith\',\''+ew.v+'\')">'
+             + ew.l+'</button>'; }).join("") + '</div>')
+    + (!submax && isExtended(st.endedWith)
+      ? '<div class="ext"><div class="lbl">Past failure</div><div class="ctl">'
+        + '<button onclick="bumpHist(\'extra\',-1)" aria-label="fewer">&minus;</button>'
+        + '<input type="text" inputmode="numeric" value="'+(st.extra || 0)+'" oninput="setHist(\'extra\',this.value)">'
+        + '<button onclick="bumpHist(\'extra\',1)" aria-label="more">+</button>'
+        + '<span class="u">'+esc(endedWithDef(st.endedWith).unit)+'</span></div></div>'
+      : '')
+    + '<textarea class="note-in" rows="2" placeholder="Notes" oninput="setHist(\'note\',this.value)">'+esc(st.note)+'</textarea>'
+    + '<div class="mini-row"><button class="mini" onclick="saveHistSet()">Save</button>'
+    + '<button class="mini" onclick="cancelHistEdit()">Cancel</button>'
+    + '<button class="mini warn" onclick="deleteHistSet('+si+','+xi+')">Delete set</button></div>'
+    + '</div>';
 }
 
 function viewRecords(){
@@ -1578,7 +1904,31 @@ function viewData(){
   var tplHtml = (TEMPLATES[inst.source] ? tplCard(inst.source, true) : '')
     + templateGroups(inst.source);
 
+  /* Rest timer. In Program rather than in the session, because it is a
+     standing preference, not a decision to make between sets. */
+  var tm = S.timer || REST_DEFAULT();
+  var timerPanel = '<div class="panel"><h3>Rest timer</h3>'
+    + '<p>Counts down after every set you log and sounds an alarm when the rest is up. '
+    + 'It never blocks anything &mdash; log the next set early and the timer restarts.</p>'
+    + '<label class="sw"><input type="checkbox"'+(tm.on ? ' checked' : '')
+    + ' onchange="setTimerOn(this.checked)"><span class="tr"></span>'
+    + '<span class="lb">Start a timer after each set</span></label>'
+    + (tm.on
+      ? '<div class="tset"><div class="lbl">Rest between sets</div><div class="ctl">'
+        + '<button onclick="setTimerSecs('+(tm.secs - 15)+')" aria-label="shorter">&minus;</button>'
+        + '<span class="tv">'+fmtClock(tm.secs)+'</span>'
+        + '<button onclick="setTimerSecs('+(tm.secs + 15)+')" aria-label="longer">+</button>'
+        + '</div></div>'
+        + '<div class="tpre">'+[60,90,120,180,240,300].map(function(sec){
+            return '<button class="'+(tm.secs === sec ? 'on' : '')+'" onclick="setTimerSecs('+sec+')">'
+                 + fmtClock(sec)+'</button>'; }).join("")+'</div>'
+        + '<p class="tnote">The alarm needs the app still open. A phone that locks its '
+        + 'screen stops the countdown, so leave HIT Log in front while you rest.</p>'
+      : '')
+    + '</div>';
+
   return instPicker
+    + timerPanel
     + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
     + (tmpl && tmpl.blurb ? '<p>'+esc(tmpl.blurb)+'</p>' : '')
     + runs + cite + nextNote + staleNote
@@ -1647,7 +1997,15 @@ function empty(b,m){ return '<div class="empty"><div class="big">'+b+'</div><p>'
 
 /* ============================================================ ACTIONS */
 function setBW(v){ if(S.draft){ S.draft.bodyweight = v === "" ? null : Number(v); save(); } }
-function toggle(id){ open_ = open_ === id ? null : id; if(open_) entryFor(open_, true); render(); }
+/* Collapsing or reopening a card abandons any correction in progress: the
+   entry it was holding is rebuilt from the prescription on the way in, and a
+   stale editingDraft would then write those defaults over the logged set. */
+function toggle(id){
+  editingDraft = null;
+  open_ = open_ === id ? null : id;
+  if(open_) entryFor(open_, true);
+  render();
+}
 /* Digits and at most one decimal point. The fields are type="text" so the
    caret can be restored across a re-render - a number input refuses
    setSelectionRange - which means the value arrives unvalidated. */
@@ -1673,6 +2031,50 @@ function bump(id,k,delta){
   else st[k] = Math.max(k === "reps" ? 1 : 0, Math.round((cur + delta) * 100) / 100);
   render();
 }
+/* Where the i-th set logged for this exercise sits in S.draft.sets. */
+function draftSetIndex(id, i){
+  var n = -1;
+  for(var k = 0; k < S.draft.sets.length; k++){
+    if(S.draft.sets[k].ex === id && ++n === i) return k;
+  }
+  return -1;
+}
+/* Pull a logged set back into the entry form. Its role and place in the slot
+   come with it, so saving puts it back where it was rather than appending. */
+function editDraftSet(id, i){
+  if(!S.draft) return;
+  var k = draftSetIndex(id, i); if(k < 0) return;
+  var s = S.draft.sets[k], e = exOf(id);
+  editingDraft = {ex:id, i:i};
+  entry[id] = {weight: (e && e.bw && !s.weight) ? "" : s.weight, reps:s.reps,
+               note:s.note || "", extra:s.extra || 0,
+               setNum: s.setNum == null ? i : s.setNum, role:s.role || "top",
+               scheme: s.scheme === "submax" ? "submax" : "failure"};
+  if(s.scheme !== "submax") entry[id].endedWith = s.endedWith || "clean";
+  open_ = id; render();
+}
+function cancelDraftEdit(){
+  var id = editingDraft && editingDraft.ex;
+  editingDraft = null;
+  if(id) delete entry[id];
+  render();
+}
+function deleteDraftSet(id, i){
+  if(!S.draft) return;
+  var k = draftSetIndex(id, i); if(k < 0) return;
+  var s = S.draft.sets[k], e = exOf(id);
+  if(!confirm("Delete set " + (i+1) + " of " + (e ? e.n : id) + " - "
+    + setPlain(e, s.reps, s.weight) + "?")) return;
+  S.draft.sets.splice(k, 1);
+  /* setNum stamps a set's place in its slot, so removing one closes the gap.
+     Roles are left exactly as logged: a back-off set was performed at 90% of
+     a top set, and promoting it would hand it a PR it never earned. */
+  var n = 0;
+  S.draft.sets.forEach(function(x){ if(x.ex === id) x.setNum = n++; });
+  if(editingDraft && editingDraft.ex === id) editingDraft = null;
+  delete entry[id]; open_ = id;
+  save(); toast("Set deleted"); render();
+}
 function commit(id){
   var st = entryFor(id), reps = Number(st.reps), weight = Number(st.weight), e = exOf(id);
   if(!reps || reps < 1) return toast("Enter reps first");
@@ -1692,19 +2094,47 @@ function commit(id){
      failure to describe, and the scheme is what keeps it out of PRs. */
   if(submax) set.scheme = "submax"; else set.endedWith = ew;
   if(extra) set.extra = extra;
+
+  /* Correcting a set already logged: overwrite it in place, keeping when it
+     was actually done, and re-judge the PR against the log as it stood just
+     before that set - not against the set's own old numbers. */
+  if(editingDraft && editingDraft.ex === id){
+    var k = draftSetIndex(id, editingDraft.i);
+    if(k > -1){
+      var old = S.draft.sets[k];
+      set.t = old.t || set.t;
+      set.setNum = old.setNum == null ? set.setNum : old.setNum;
+      set.role = old.role || set.role;
+      if(isPR(id, set, {draft:k}, activeRange(id, 0)[0])) set.pr = true;
+      S.draft.sets[k] = set;
+    }
+    editingDraft = null;
+    delete entry[id]; open_ = null;
+    save(); toast("Set updated"); render(); return;
+  }
+
+  var pr = isPR(id, set, {draft:S.draft.sets.length}, activeRange(id, 0)[0]);
+  if(pr) set.pr = true;
   S.draft.sets.push(set);
   save();
+  /* The rest starts the moment the set is logged, and the tap that logged it
+     is the gesture that buys the right to make noise later. */
+  primeAudio(); startRest();
   var needed = slotSetsNeeded(S.draft, id);
   var logged = slotsLogged(S.draft, id);
   if(logged < needed){
     delete entry[id]; entryFor(id, true);
-    toast("Set "+logged+" of "+needed+" logged");
+    toast(pr ? "PR - "+setPlain(e, reps, weight)+" on set "+logged+" of "+needed
+             : "Set "+logged+" of "+needed+" logged", pr);
     render(); return;
   }
   /* Past-failure work no longer suppresses the target: the reps logged are the
      clean ones and they earned whatever they earned. Only "short" holds back. */
   var tail = extra ? " +"+extra+" "+endedWithDef(ew).unit : "";
-  if(submax){
+  if(pr){
+    toast("PR - "+setPlain(e, reps, weight)+tail
+      + (reps >= hi ? " - top of range, "+bumpWeight(weight, e)+" lb next time" : ""), true);
+  } else if(submax){
     toast("Logged "+reps+" reps"+(weight ? " x "+weight : ""));
   } else if(role === "working"){
     toast("Logged "+reps+" x "+weight+tail);
@@ -1754,6 +2184,73 @@ function deleteSession(idx){
   if(!confirm("Delete workout "+s.workout+" from "+fmtDate(s.date)+" and its "
     + s.sets.length+" set"+(s.sets.length === 1 ? "" : "s")+"?\n\nThis cannot be undone.")) return;
   S.sessions.splice(idx, 1); save(); toast("Session deleted"); render();
+}
+/* ---- correcting a set in a saved session ----
+   Same controls as the log card, rendered inside the history row. The set
+   keeps its place in the session; only what was entered changes. */
+function editHistSet(si, xi){
+  var sess = S.sessions[si]; if(!sess) return;
+  var x = sess.sets[xi]; if(!x) return;
+  histEdit = {s:si, x:xi};
+  histEntry = {weight:x.weight, reps:x.reps, note:x.note || "", extra:x.extra || 0,
+               scheme: x.scheme === "submax" ? "submax" : "failure",
+               endedWith: x.scheme === "submax" ? null
+                          : (x.endedWith || (x.failure === "Yes" ? "clean" : "short"))};
+  histOpen = si; render();
+}
+function cancelHistEdit(){ histEdit = null; histEntry = null; render(); }
+function setHist(k, v){
+  if(!histEntry) return;
+  histEntry[k] = (k === "note" || k === "endedWith") ? v : numStr(v);
+  if(k === "endedWith" && !isExtended(v)) histEntry.extra = 0;
+  if(k === "note") return;
+  if(k === "weight" || k === "reps" || k === "extra") renderKeepFocus(k, ".set-edit"); else render();
+}
+function bumpHist(k, delta){
+  if(!histEntry) return;
+  var cur = Number(histEntry[k]) || 0;
+  if(k === "weight") histEntry.weight = Math.max(0, stepWeight(cur, delta));
+  else histEntry[k] = Math.max(k === "reps" ? 1 : 0, cur + delta);
+  render();
+}
+function saveHistSet(){
+  if(!histEdit || !histEntry) return;
+  var sess = S.sessions[histEdit.s]; if(!sess) return;
+  var x = sess.sets[histEdit.x]; if(!x) return;
+  var e = exOf(x.ex); if(!e) return;
+  var reps = Number(histEntry.reps), weight = Number(histEntry.weight);
+  if(!reps || reps < 1) return toast("Enter reps first");
+  if(e.bw){ if(!(weight > 0)) weight = 0; }
+  else if(!weight || weight <= 0) return toast("Enter a weight first");
+  x.reps = reps; x.weight = weight; x.note = histEntry.note || "";
+  x.e1 = e1rm(reps, weight, e.mult); x.vol = reps * weight * e.mult;
+  if(x.scheme !== "submax"){
+    x.endedWith = histEntry.endedWith;
+    var extra = isExtended(x.endedWith) ? Math.max(0, Number(histEntry.extra) || 0) : 0;
+    if(extra) x.extra = extra; else delete x.extra;
+  }
+  /* Re-judged against the log as it stood immediately before this set, and
+     against the library range: the prescription that produced it is not
+     recorded on the set, and today's draft is a different workout. */
+  if(isPR(x.ex, x, {s:histEdit.s, x:histEdit.x}, range(e)[0])) x.pr = true; else delete x.pr;
+  histOpen = histEdit.s; histEdit = null; histEntry = null;
+  save(); toast("Set updated"); render();
+}
+function deleteHistSet(si, xi){
+  var sess = S.sessions[si]; if(!sess) return;
+  var x = sess.sets[xi]; if(!x) return;
+  var e = exOf(x.ex);
+  if(!confirm("Delete " + (e ? e.n : x.ex) + " " + setPlain(e, x.reps, x.weight)
+    + " from " + fmtDate(sess.date) + "?\n\nThis cannot be undone.")) return;
+  sess.sets.splice(xi, 1);
+  histEdit = null; histEntry = null;
+  /* A session with nothing left in it is not a rest day that happened - it
+     would still count against the rotation and the gap between workouts. */
+  if(!sess.sets.length){
+    S.sessions.splice(si, 1); histOpen = null;
+    save(); toast("Last set removed - session deleted"); render(); return;
+  }
+  histOpen = si; save(); toast("Set deleted"); render();
 }
 function swapAlt(from,to){
   S.draft.order = S.draft.order.map(function(x){ return x === from ? to : x; });
@@ -1867,7 +2364,8 @@ function exportJSON(){
   for(var k in A){ var ex = A[k]; lib[k] = {n:ex.n, g:ex.g, rr:ex.rr, mult:ex.mult, step:ex.step, pct:ex.pct == null ? 5 : ex.pct, unit:ex.unit}; if(ex.bw) lib[k].bw = true; }
   var payload = {app:"hitlog", version:3, schema:3, exported:new Date().toISOString(),
                  instances:S.instances, active:S.active,
-                 sessions:S.sessions, draft:S.draft, program:prog(), custom:S.custom, library:lib, baselines:S.baselines};
+                 sessions:S.sessions, draft:S.draft, program:prog(), custom:S.custom, library:lib,
+                 baselines:S.baselines, timer:S.timer};
   var blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "hitlog_"+today()+".json"; a.click();
@@ -1889,7 +2387,10 @@ function importJSON(input){
       S = {schema:3, dateMigrated: wasV3 || d.dateMigrated === true,
            instances:d.instances, active:d.active,
            sessions:d.sessions, draft:d.draft || null,
-           custom:d.custom || {}, baselines:d.baselines || S.baselines || {}};
+           custom:d.custom || {}, baselines:d.baselines || S.baselines || {},
+           /* A device setting, not log data: an export that predates it must
+              not switch off a timer already set up on this phone. */
+           timer:d.timer || S.timer || REST_DEFAULT()};
       save(); toast("Imported "+d.sessions.length+" sessions"); render();
     }catch(e){ toast("That is not a HIT Log export"); }
     input.value = "";
@@ -1952,14 +2453,14 @@ function render(){
    While these fields were type="number" this never worked: selectionStart
    reads as null and setSelectionRange throws InvalidStateError, so every
    keystroke landed the caret at position 0 and the digits came out reversed. */
-function renderKeepFocus(k){
+function renderKeepFocus(k, scope){
   var ae = document.activeElement, pos = null;
   try{ pos = ae ? ae.selectionStart : null; }catch(e){}
   render();
-  var el;
-  if(k === "extra") el = document.querySelector(".card.open .ext input");
+  var root = scope || ".card.open", el;
+  if(k === "extra") el = document.querySelector(root+" .ext input");
   else {
-    var ins = document.querySelectorAll(".card.open .st input");
+    var ins = document.querySelectorAll(root+" .st input");
     el = k === "weight" ? ins[0] : ins[1];
   }
   if(el){ el.focus(); if(pos !== null){ try{ el.setSelectionRange(pos, pos); }catch(e){} } }
@@ -2047,12 +2548,20 @@ function playSplash(){
   var themeMeta = document.querySelector('meta[name="theme-color"]');
   var themeWas = themeMeta ? themeMeta.getAttribute("content") : null;
   if(themeMeta) themeMeta.setAttribute("content", "#000000");
+  /* That covers Android. iOS paints the status bar from the page canvas
+     instead, and this canvas is near-white - which is the white bar sitting
+     above the clip. Blacking the canvas for the run closes it. */
+  document.documentElement.classList.add("splash-on");
 
   var done = false, timer;
   function end(){
     if(done) return;
     done = true; clearTimeout(timer);
     box.classList.add("out");
+    /* Canvas back as the fade STARTS, not when it lands: the app is drawn
+       underneath and white cards over a black page during the fade would be
+       worse than the white strip returning a third of a second early. */
+    document.documentElement.classList.remove("splash-on");
     /* The bar goes back as the fade lands rather than when it starts, so it
        stays dark for as long as the screen behind it still is. */
     setTimeout(function(){
@@ -2096,9 +2605,14 @@ function playSplash(){
   var btns = document.querySelectorAll(".nav button");
   for(var i=0;i<btns.length;i++){
     btns[i].addEventListener("click", function(){
-      tab = this.dataset.tab; open_ = null; adding = false; addTo = null; newForm = false; render();
+      tab = this.dataset.tab; open_ = null; adding = false; addTo = null; newForm = false;
+      editingDraft = null; histEdit = null; histEntry = null; render();
     });
   }
+  var ra = document.getElementById("rbarAdd");
+  if(ra) ra.addEventListener("click", function(){ addRest(30); });
+  var rs = document.getElementById("rbarSkip");
+  if(rs) rs.addEventListener("click", stopRest);
   render();
   playSplash();
   watchSeen();
