@@ -10,7 +10,7 @@
 
    Bump CACHE whenever you change the shell; the activate handler drops old ones.
 */
-const CACHE = "hitlog-v16";
+const CACHE = "hitlog-v17";
 const SHELL = [
   "./",
   "./index.html",
@@ -63,6 +63,21 @@ self.addEventListener("activate", function (e) {
         });
       })
       .then(function () { return self.clients.claim(); })
+  );
+});
+
+// A tap on the rest-timer notification brings the log back rather than
+// opening a second copy of it.
+self.addEventListener("notificationclick", function (e) {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true })
+      .then(function (list) {
+        for (var i = 0; i < list.length; i++) {
+          if ("focus" in list[i]) return list[i].focus();
+        }
+        return self.clients.openWindow ? self.clients.openWindow("./") : null;
+      })
   );
 });
 

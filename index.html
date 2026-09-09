@@ -1228,19 +1228,86 @@ function toast(m, gold){
 }
 
 /* ============================================================ REST TIMER
-   Starts on the tap that logs a set, counts down the rest the trainee set in
-   Program, and makes a noise when it is up. Off unless switched on.
+   Starts on the tap that logs a set, counts down the rest set in Program, and
+   makes a noise when it is up. Off unless switched on.
 
-   It lives outside #view and keeps its own interval, so a re-render cannot
-   disturb it and it follows you across tabs. The end time is an absolute
-   timestamp rather than a decrementing count: a phone that throttles timers
-   in the background then comes back with the right number on the clock
-   instead of one that stopped when the screen did. */
-var restEndsAt = 0, restTick = null, restRang = false, actx = null;
+   THE HARD LIMIT. A web app cannot book an alarm with the operating system.
+   The one API that would have done it - Notification Triggers, a scheduled
+   notification handed to the OS and fired whether or not the page still
+   exists - was trialled by Chrome and abandoned, and nothing replaced it. A
+   phone is free to freeze a backgrounded page and to evict it outright, and
+   when it does, no timer is running to ring. Everything below is about
+   shrinking that window rather than pretending it closes:
+
+     wake lock   - hold the screen awake for the rest, so the usual failure
+                   (set the phone down, it locks, the count dies) stops
+                   happening at all
+     absolute    - the end time is a timestamp, never a decrementing count, so
+                   a throttled page comes back with the right number
+     remembered  - the timestamp is written to storage, so a page evicted and
+                   reloaded picks the rest back up instead of losing it
+     notified    - when the page is in the background but still alive, the
+                   alarm goes out as a system notification, which is what
+                   makes it read and sound like any other timer on the phone
+     on return   - coming back to a rest that ended while away rings then
+
+   What is still not possible: swapping to another app, locking the phone, and
+   being rung by a page the OS has since frozen. */
+var restEndsAt = 0, restTick = null, restRang = false, actx = null, wake = null;
+/* Kept out of S so it never rides along in an export - a rest in progress is
+   not part of the log. */
+const REST_KEY = "hitlog.rest";
 
 function fmtClock(s){
   s = Math.max(0, Math.round(s));
   return Math.floor(s/60) + ":" + String(s % 60).padStart(2, "0");
+}
+/* Holding the screen awake is the single biggest thing available here: the
+   ordinary way a rest timer dies is the phone locking itself while it counts.
+   The lock is dropped by the browser whenever the page is hidden, so it has
+   to be taken again on the way back - see the visibility handler below. */
+function holdScreen(){
+  try{
+    if(!navigator.wakeLock || wake) return;
+    navigator.wakeLock.request("screen").then(function(w){
+      wake = w;
+      w.addEventListener("release", function(){ wake = null; });
+    }).catch(function(){ /* denied, or not permitted in this context */ });
+  }catch(e){}
+}
+function freeScreen(){
+  if(!wake) return;
+  try{ wake.release(); }catch(e){}
+  wake = null;
+}
+/* Asked for on the tap that switches the timer on, which is a gesture, and
+   never anywhere else. A notification is what lets the alarm behave like the
+   phone's own timer when the app is not the thing being looked at. */
+function askNotify(){
+  try{
+    if(!("Notification" in window)) return;
+    if(Notification.permission === "default") Notification.requestPermission();
+  }catch(e){}
+}
+function notifyState(){
+  try{ return ("Notification" in window) ? Notification.permission : "unsupported"; }
+  catch(e){ return "unsupported"; }
+}
+/* Posted through the service worker so it survives the page being backgrounded
+   and so a tap on it reopens the app. Only when the app is NOT in front: a
+   heads-up banner over the log you are already looking at is noise, and the
+   tones below have it covered. */
+function notifyRest(){
+  try{
+    if(notifyState() !== "granted" || document.visibilityState === "visible") return;
+    var opts = {body:"Next set.", tag:"hitlog-rest", renotify:true,
+                icon:"icon-192.png", badge:"favicon.png",
+                vibrate:[220,120,220,120,380], requireInteraction:true};
+    if(navigator.serviceWorker && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(function(reg){ reg.showNotification("Rest is up", opts); })
+        .catch(function(){ try{ new Notification("Rest is up", opts); }catch(e){} });
+    } else { new Notification("Rest is up", opts); }
+  }catch(e){}
 }
 /* One AudioContext, opened on the tap that starts the timer. Browsers only
    let audio begin from a gesture, and a context unlocked by one is still
@@ -1274,6 +1341,7 @@ function alarm(){
     }
   }catch(e){ /* no audio available - the bar still turns green */ }
   try{ if(navigator.vibrate) navigator.vibrate([220, 120, 220, 120, 380]); }catch(e){}
+  notifyRest();
 }
 function paintRest(){
   var box = document.getElementById("rbar");
@@ -1284,15 +1352,14 @@ function paintRest(){
   if(l) l.textContent = left > 0 ? "Rest" : "Rest is up";
   box.classList.toggle("done", left <= 0);
 }
-function startRest(){
-  var s = S.timer;
-  if(!s || !s.on || !(s.secs > 0)) return;
-  restEndsAt = Date.now() + s.secs * 1000;
-  restRang = false;
+/* Show the bar and start ticking against whatever restEndsAt already says.
+   Shared by a fresh rest and one picked back up after a reload. */
+function runRest(){
   var box = document.getElementById("rbar");
   if(box) box.hidden = false;
   document.body.classList.add("resting");
   paintRest();
+  holdScreen();
   clearInterval(restTick);
   restTick = setInterval(function(){
     paintRest();
@@ -1302,25 +1369,58 @@ function startRest(){
     if(restRang && Date.now() > restEndsAt + 30000) stopRest();
   }, 250);
 }
+function startRest(){
+  var s = S.timer;
+  if(!s || !s.on || !(s.secs > 0)) return;
+  restEndsAt = Date.now() + s.secs * 1000;
+  restRang = false;
+  try{ localStorage.setItem(REST_KEY, String(restEndsAt)); }catch(e){}
+  runRest();
+}
+/* A backgrounded PWA gets evicted and reloaded on its own - the opening
+   titles already work around the same thing. Without this the rest simply
+   vanished when that happened. */
+function resumeRest(){
+  var v = 0;
+  try{ v = Number(localStorage.getItem(REST_KEY)) || 0; }catch(e){ return; }
+  if(!v) return;
+  /* Over by more than the bar would have stayed up for: nothing to resume,
+     and ringing for a rest that ended yesterday would be worse than silence. */
+  if(Date.now() > v + 30000){ try{ localStorage.removeItem(REST_KEY); }catch(e){} return; }
+  restEndsAt = v; restRang = false;
+  runRest();
+}
 function stopRest(){
   clearInterval(restTick); restTick = null; restEndsAt = 0; restRang = false;
+  freeScreen();
+  try{ localStorage.removeItem(REST_KEY); }catch(e){}
   var box = document.getElementById("rbar");
   if(box){ box.hidden = true; box.classList.remove("done"); }
   document.body.classList.remove("resting");
 }
+/* Coming back to the app. The browser released the wake lock when the page
+   went away and the interval was throttled or stopped outright, so re-take
+   the lock, correct the clock, and ring now if the rest ended while away. */
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState !== "visible" || !restTick) return;
+  holdScreen();
+  paintRest();
+  if(!restRang && Date.now() >= restEndsAt){ restRang = true; alarm(); }
+});
 function addRest(sec){
   if(!restTick) return;
   /* From now if the clock has already run out, so +30s means thirty more
      seconds rather than thirty seconds ago. */
   restEndsAt = Math.max(Date.now(), restEndsAt) + sec * 1000;
   restRang = false;
+  try{ localStorage.setItem(REST_KEY, String(restEndsAt)); }catch(e){}
   var box = document.getElementById("rbar");
   if(box) box.classList.remove("done");
   paintRest();
 }
 function setTimerOn(v){
   S.timer.on = !!v;
-  if(!S.timer.on) stopRest();
+  if(S.timer.on) askNotify(); else stopRest();
   save(); render();
 }
 function setTimerSecs(v){
@@ -1907,6 +2007,7 @@ function viewData(){
   /* Rest timer. In Program rather than in the session, because it is a
      standing preference, not a decision to make between sets. */
   var tm = S.timer || REST_DEFAULT();
+  var np = notifyState();
   var timerPanel = '<div class="panel"><h3>Rest timer</h3>'
     + '<p>Counts down after every set you log and sounds an alarm when the rest is up. '
     + 'It never blocks anything &mdash; log the next set early and the timer restarts.</p>'
@@ -1922,8 +2023,21 @@ function viewData(){
         + '<div class="tpre">'+[60,90,120,180,240,300].map(function(sec){
             return '<button class="'+(tm.secs === sec ? 'on' : '')+'" onclick="setTimerSecs('+sec+')">'
                  + fmtClock(sec)+'</button>'; }).join("")+'</div>'
-        + '<p class="tnote">The alarm needs the app still open. A phone that locks its '
-        + 'screen stops the countdown, so leave HIT Log in front while you rest.</p>'
+        + (np === "granted"
+            ? '<p class="tnote">The screen is held awake while you rest, and the alarm also '
+              + 'arrives as a notification if you have swapped away from the app. '
+              + 'A rest still running when the app reloads is picked back up.</p>'
+            : np === "denied"
+            ? '<p class="tnote">The screen is held awake while you rest, so the countdown '
+              + 'survives you putting the phone down. Notifications are blocked for this '
+              + 'site, so if you swap to another app the alarm has no way to reach you '
+              + '&mdash; turn them back on in your browser&rsquo;s site settings.</p>'
+            : '<div class="howto"><b>Let the alarm reach you outside the app</b>'
+              + '<span class="q">Without notification permission the alarm can only sound '
+              + 'while HIT Log is the app in front. With it, the rest ending reaches you '
+              + 'the way any other timer on the phone would.</span>'
+              + '<button class="btn-o" style="margin-top:10px;background:var(--surface);border-color:var(--blue)" '
+              + 'onclick="askNotify()">Allow notifications</button></div>')
       : '')
     + '</div>';
 
@@ -2614,6 +2728,7 @@ function playSplash(){
   var rs = document.getElementById("rbarSkip");
   if(rs) rs.addEventListener("click", stopRest);
   render();
+  resumeRest();
   playSplash();
   watchSeen();
 })();
