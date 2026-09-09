@@ -2042,13 +2042,13 @@ function viewData(){
     + '</div>';
 
   return instPicker
-    + timerPanel
     + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
     + (tmpl && tmpl.blurb ? '<p>'+esc(tmpl.blurb)+'</p>' : '')
     + runs + cite + nextNote + staleNote
     + '<p>Tap a workout to add, remove or reorder movements.</p>'
     + progHtml
     + '<button class="btn-o" onclick="resetProgram()">Reset to source template</button></div>'
+    + timerPanel
     + '<div class="panel"><h3>Storage</h3><p>'
     + (HAS_LS
         ? 'Saved on this device. '+S.sessions.length+' session'+(S.sessions.length === 1 ? '' : 's')+', '+nSets+' sets. Nothing leaves your phone.'
