@@ -118,10 +118,26 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:500}
 .card.open .rtile{background:var(--accent-c);color:var(--accent)}
 .card.done .rtile{background:var(--green-c);color:var(--green-on)}
+.card.part .rtile{background:var(--amber-c);color:var(--amber-on)}
 .cname{flex:1;min-width:0}
 .cname .n{font-size:15px;font-weight:500;line-height:1.25}
 .cname .r{font-size:12px;color:var(--txt-2);margin-top:3px;display:block;font-family:var(--mono)}
 .cname .r b{color:var(--blue);font-weight:600}
+/* ---- pre-exhaust cycle ----
+   A rail down the left edge brackets the paired movements, and the gap between
+   them closes up, so the pair reads as one block on the screen the way it is
+   one effort in the gym. The rail is square where it continues into the next
+   card and rounded where the cycle begins and ends. */
+.card.cyc{border-left:3px solid var(--accent);border-radius:0 var(--r) var(--r) 0;
+  margin-bottom:2px}
+.card.cyc.cyc-first{border-top-left-radius:var(--r)}
+.card.cyc.cyc-last{border-bottom-left-radius:var(--r);margin-bottom:10px}
+/* Names what this movement runs straight into. Sits at the foot of the card
+   in every state - collapsed, open and done - so the instruction is there
+   while the set is being logged, not only before it. */
+.cyclink{font-size:11px;font-weight:500;letter-spacing:.02em;color:var(--accent);
+  background:var(--accent-c);padding:6px 16px;display:flex;align-items:center;gap:6px}
+.card.done .cyclink{opacity:.62}
 .badge{font-size:10px;font-weight:600;letter-spacing:.04em;padding:4px 9px;border-radius:100px;
   background:var(--amber-c);color:var(--amber-on)}
 .badge.ok{background:var(--green-c);color:var(--green-on)}
@@ -1057,6 +1073,51 @@ function normalizeSlot(it, cycle){
 function resolveSlots(code, cycle){
   return prog()[code].list.map(function(it){ return normalizeSlot(it, cycle); });
 }
+/* ---- pre-exhaust cycles ----
+   A slot carrying `link` runs straight into the one after it with no rest, so
+   a run of linked slots plus the first unlinked slot that closes it is one
+   cycle. An unlinked slot is a cycle of one, which keeps every caller free of
+   special cases. Exercises added to a session by hand have no slotMap entry at
+   all, hence the guards. */
+function slotLink(d, id){ return !!(d.slotMap && d.slotMap[id] && d.slotMap[id].link); }
+function cycleOf(d, id){
+  var o = d.order, i = o.indexOf(id);
+  if(i < 0) return [id];
+  /* Back up to the head of the chain, then walk it forward. */
+  var start = i;
+  while(start > 0 && slotLink(d, o[start-1])) start--;
+  var out = [o[start]];
+  for(var k = start; slotLink(d, o[k]) && k + 1 < o.length; k++) out.push(o[k+1]);
+  return out;
+}
+function inCycle(d, id){ return cycleOf(d, id).length > 1; }
+/* Which member of a cycle is due next. The pair alternates the way it is
+   actually performed - flyes, press, rest, flyes, press - so the member with
+   the fewest sets logged goes next, and a tie starts the round at the earlier
+   one. Null once every member is finished. */
+function nextInCycle(d, ids){
+  var best = null, bestN = Infinity;
+  ids.forEach(function(x){
+    var n = slotsLogged(d, x);
+    if(n >= slotSetsNeeded(d, x)) return;
+    if(n < bestN){ bestN = n; best = x; }
+  });
+  return best;
+}
+/* The slot to open after logging one. Finishes the current cycle first, then
+   scans forward for the next unfinished slot, wrapping once so anything
+   skipped earlier is picked up rather than stranded. Null ends the session. */
+function nextToLog(d, afterId){
+  var here = nextInCycle(d, cycleOf(d, afterId));
+  if(here) return here;
+  var o = d.order, at = o.indexOf(afterId);
+  for(var step = 1; step <= o.length; step++){
+    var cand = o[(at + step) % o.length];
+    if(slotsLogged(d, cand) < slotSetsNeeded(d, cand))
+      return nextInCycle(d, cycleOf(d, cand)) || cand;
+  }
+  return null;
+}
 function slotSetsNeeded(d, id){
   return d.slotMap && d.slotMap[id] ? d.slotMap[id].sets.length : 1;
 }
@@ -1678,7 +1739,17 @@ function card(d, id, i){
   var needed = slotSetsNeeded(d, id);
   var allDone = logged.length >= needed;
   var partialDone = logged.length > 0 && !allDone;
-  var isOpen = open_ === id || partialDone;
+  /* A half-finished slot normally stays open so it cannot be lost track of.
+     Inside a cycle it must not: the partner is deliberately what opens next,
+     and two cards open at once is the confusion this was meant to remove. */
+  var cyc = cycleOf(d, id), pos = cyc.indexOf(id), linked = cyc.length > 1;
+  var isOpen = open_ === id || (partialDone && !linked);
+  /* The visual half of the pairing. The rail brackets the members together and
+     the tail line names what follows, so the pair reads as one movement on the
+     screen the way it is one movement in the gym. */
+  var cycCls = linked ? ' cyc' + (pos === 0 ? ' cyc-first' : '') + (pos === cyc.length-1 ? ' cyc-last' : '') : '';
+  var nextEx = linked && pos < cyc.length-1 ? exOf(cyc[pos+1]) : null;
+  var cycTail = nextEx ? '<div class="cyclink">no rest &rarr; '+esc(nextEx.n)+'</div>' : '';
   /* Range for the set being entered now, not the library default. */
   var setNum = logged.length;
   var rrText = activeRR(id, setNum);
@@ -1694,7 +1765,7 @@ function card(d, id, i){
       ? logged.map(function(s){ return setText(e, s.reps, s.weight, s.extra); }).join(' / ')
       : setText(e, topSet.reps, topSet.weight, topSet.extra)
         + (!topSet.scheme && sew !== "clean" ? ' · '+sew : '');
-    return '<article class="card done"><button class="chead" onclick="toggle(\''+id+'\')">'
+    return '<article class="card done'+cycCls+'"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">&#10003;</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
       + '<span class="r">'+summ+'</span></span>'
       /* A PR outranks both of the others: TOP says the range was filled and
@@ -1705,7 +1776,7 @@ function card(d, id, i){
           ? '<span class="badge pr">&#9733; PR</span>'
           : !topSet.scheme && sew === "clean" && topSet.reps >= topHi
           ? '<span class="badge">TOP</span>' : '<span class="badge ok">DONE</span>')
-      + '</button></article>';
+      + '</button>' + cycTail + '</article>';
   }
 
   /* Break-in sets prescribe nothing, so there is no target to compute or show
@@ -1722,14 +1793,17 @@ function card(d, id, i){
 
   if(!isOpen){
     var lk = plain ? lastKnown(id) : null;
-    return '<article class="card"><button class="chead" onclick="toggle(\''+id+'\')">'
+    return '<article class="card'+(logged.length ? ' part' : '')+cycCls+'"><button class="chead" onclick="toggle(\''+id+'\')">'
       + '<span class="rtile">'+(i+1)+'</span><span class="cname"><span class="n">'+esc(e.n)+'</span><span class="r">'
-      + (!plain
+      + (logged.length
+          ? '<b>'+logged.length+' of '+needed+'</b> logged &middot; '
+            + logged.map(function(s){ return setText(e, s.reps, s.weight); }).join(' / ')
+          : !plain
           ? (t.pr ? 'last '+(t.last ? setText(e, t.last.reps, t.last.weight) : '&mdash;')+' &rarr; ' : '')
             + '<b>'+(t.weight === null ? (t.bwEx ? t.reps+' reps' : 'set baseline') : setText(e, t.reps, t.weight))+'</b>'
           : '<b>'+lo+' reps</b>, comfortable'
             + (lk ? ' &middot; last '+setText(e, lk.reps, lk.weight) : ''))
-      + '</span></span></button></article>';
+      + '</span></span></button>' + cycTail + '</article>';
   }
 
   var st = entryFor(id);
@@ -1809,7 +1883,7 @@ function card(d, id, i){
     ? '<div class="targline" style="font-size:13px;color:var(--txt-2)">Set '+(logged.length+1)+' of '+needed
       +(st.role === "working" ? ' &middot; working set' : ' &middot; top set')+'</div>' : '';
 
-  return '<article class="card open"><button class="chead" onclick="toggle(\''+id+'\')">'
+  return '<article class="card open'+cycCls+'"><button class="chead" onclick="toggle(\''+id+'\')">'
     + '<span class="rtile">'+(i+1)+'</span><span class="cname"><span class="n">'+esc(e.n)+'</span>'
     + '<span class="r">'+esc(rrLabel(rrText))+' reps &middot; '+esc(e.unit)+'</span></span></button>'
     + '<div class="cbody">'
@@ -1876,7 +1950,7 @@ function card(d, id, i){
     + (editingHere ? '<button class="mini" onclick="cancelDraftEdit()">Cancel edit</button>' : '')
     + (partner ? '<button class="mini" onclick="swapAlt(\''+id+'\',\''+partner+'\')">Swap to '+esc(exOf(partner).n)+'</button>' : '')
     + '<button class="mini warn" onclick="dropToday(\''+id+'\')">Remove from today</button></div>'
-    + '</div></article>';
+    + '</div>' + cycTail + '</article>';
 }
 
 /* ============================================================ HISTORY / RECORDS */
@@ -2356,11 +2430,22 @@ function commit(id){
   primeAudio(); startRest();
   var needed = slotSetsNeeded(S.draft, id);
   var logged = slotsLogged(S.draft, id);
+  /* Where the workout goes next. Inside a cycle that is the partner, because
+     the pair is performed alternately and leaving you parked on one card meant
+     tapping back and forth by hand. Everywhere else it is the next unfinished
+     slot, which for a two-set slot like Yates' is the same card again - rest,
+     then repeat the movement. */
+  var go = nextToLog(S.draft, id);
+  function handOff(){
+    delete entry[id];
+    open_ = go;
+    if(go) entryFor(go, true);
+    render();
+  }
   if(logged < needed){
-    delete entry[id]; entryFor(id, true);
     toast(pr ? "PR - "+setPlain(e, reps, weight)+" on set "+logged+" of "+needed
              : "Set "+logged+" of "+needed+" logged", pr);
-    render(); return;
+    handOff(); return;
   }
   /* Past-failure work no longer suppresses the target: the reps logged are the
      clean ones and they earned whatever they earned. Only "short" holds back. */
@@ -2378,7 +2463,7 @@ function commit(id){
     toast(reps >= hi ? "Top of range"+tail+" - "+bumpWeight(weight, e, activePct(id))+" lb next time"
                      : "Logged - "+reps+" x "+weight+tail, reps >= hi);
   }
-  delete entry[id]; open_ = null; render();
+  handOff();
 }
 function startSession(code, cycle){
   var prevBW = null;
