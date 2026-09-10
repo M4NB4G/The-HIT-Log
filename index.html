@@ -1121,15 +1121,26 @@ const TPL_GROUPS = [
   {key:"double", label:"Two heavy sets, both to failure"},
   {key:"submax", label:"Break-in &middot; not taken to failure"}
 ];
+/* The shelf turns on whether a movement gets a BACK-OFF, not on how many sets
+   it gets. Counting sets put Heavy Duty Origins next to Blood and Guts, and
+   the two are not the same animal: Yates benches, rests, and benches again at
+   90% of the first, so the second set's load is derived from the first.
+   Origins takes flyes to failure, the incline press to failure, and then runs
+   that same pair again at the same load - two standalone all-out singles, not
+   a top set and a follow-up. loadFactor is exactly that derivation, so it is
+   what the question asks about. A routine repeating an identical set lands on
+   the singles shelf too, which is the same judgement made consistently. */
 function templateGroup(t){
-  var most = 1, submax = false;
+  var backoff = false, submax = false;
   for(var c in t.days) t.days[c].list.forEach(function(it){
     var sets = (typeof it === "object" && it.sets) || null;
     if(!sets) return;                                  // legacy slot: one failure set
-    if(sets.length > most) most = sets.length;
     if(sets.some(function(s){ return s.scheme === "submax"; })) submax = true;
+    if(sets.some(function(s){ return s.loadFactor != null; })) backoff = true;
   });
-  return submax ? "submax" : most > 1 ? "double" : "single";
+  /* submax first: the break-in's second set carries a loadFactor of 1.1, and
+     it is a prescription to stay short of failure before it is anything else. */
+  return submax ? "submax" : backoff ? "double" : "single";
 }
 
 /* A flat prescription like "10-10" is not a range; show it as "10". */
