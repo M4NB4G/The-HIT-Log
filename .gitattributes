@@ -1,0 +1,29 @@
+# Line endings are decided here rather than by whatever core.autocrlf happens
+# to be set to on the machine doing the commit.
+#
+# Why this file exists: index.html has been stored with CRLF for its whole
+# history, but only by accident. A stray lone CR sat inside one of the workout
+# templates, and git skips autocrlf normalisation on content with irregular
+# line endings - so that single byte was the only thing keeping the file out of
+# the normaliser. Tidying it up let git normalise the whole file, and a commit
+# that moved two blocks reported all 2,987 lines as changed. Three separate
+# commits in one day had already been mangled this way before the cause was
+# found.
+#
+# index.html is therefore left alone entirely: -text means no conversion in
+# either direction, so the bytes on disk are the bytes in the object store and
+# no config on any machine can rewrite them. The trade is that git will not
+# repair it either, so keep editing it on Windows.
+#
+# Everything else has always been stored LF and is left to normalise the usual
+# way: LF in the repository, native endings in the working tree.
+
+* text=auto
+
+index.html -text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.ico binary
