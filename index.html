@@ -443,27 +443,30 @@ body.resting{padding-bottom:calc(146px + env(safe-area-inset-bottom))}
 .hide{display:none!important}
 
 /* ---- opening titles ----
-   Covers the app for one clip on the first open of each day. The app renders
-   underneath while it plays, so dismissing it lands on a ready screen. */
-.splash{position:fixed;inset:0;z-index:100;background:#000;display:flex;align-items:center;
+   Covers the app for one clip on a return after a real absence. The app
+   renders underneath while it plays, so dismissing it lands on a ready screen.
+
+   The canvas colour, not black. The strips above and below the clip are the
+   status bar and the gesture bar, and a page cannot paint either: Chrome
+   colours the status bar from theme-color but takes the gesture bar from the
+   manifest's theme_color at install time and never from the page, and iOS
+   paints both from the canvas. Blacking the overlay left the OS chrome as two
+   white bands round a black screen. Matching it instead makes bars, letterbox
+   and clip read as one light frame with the picture set into it. */
+.splash{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;
   justify-content:center;opacity:1;transition:opacity .32s ease}
 .splash[hidden]{display:none}
-/* The white strip above the clip was the status bar, not the video. iOS in
-   standalone mode paints that strip from the page canvas, and this canvas is
-   near-white; Android paints it from theme-color, which playSplash already
-   borrows. Take the canvas for the run too, and hand it back the instant the
-   fade starts so the app never shows through onto black. */
-html.splash-on,html.splash-on body{background:#000}
 .splash.out{opacity:0;pointer-events:none}
 /* contain, not cover. The clip is 9:16 but phones are taller than that now
    - about 0.46 against its 0.563 - so covering the screen scaled it up a
-   fifth and took ~9% off each side, which crops the title card's text.
-   Letterboxing is invisible against the black background above. */
+   fifth and took ~9% off each side, which crops the title card's text. */
 .splash video{width:100%;height:100%;object-fit:contain}
+/* Sits in the letterbox on a tall phone and over the clip on a 9:16 one, so
+   it is the app's own white pill, which reads on both. */
 .splash .skip{position:absolute;top:calc(14px + env(safe-area-inset-top));
   right:calc(14px + env(safe-area-inset-right));min-height:36px;padding:0 15px;
-  border-radius:100px;background:rgba(0,0,0,.42);color:#fff;font-size:13px;font-weight:500;
-  border:1px solid rgba(255,255,255,.34)}
+  border-radius:100px;background:var(--surface);color:var(--txt);font-size:13px;font-weight:500;
+  border:1px solid var(--outline);box-shadow:var(--e1)}
 </style>
 </head>
 <body>
@@ -2905,31 +2908,13 @@ function playSplash(){
   touchSeen();
   if(Date.now() - last < SPLASH_GAP_MS) return;
 
-  /* Android paints the status bar from theme-color, and a fixed overlay
-     cannot reach OS chrome - so the app's light bar sat in a white strip
-     above a black screen. Borrow it for the run, hand it back after. */
-  var themeMeta = document.querySelector('meta[name="theme-color"]');
-  var themeWas = themeMeta ? themeMeta.getAttribute("content") : null;
-  if(themeMeta) themeMeta.setAttribute("content", "#000000");
-  /* That covers Android. iOS paints the status bar from the page canvas
-     instead, and this canvas is near-white - which is the white bar sitting
-     above the clip. Blacking the canvas for the run closes it. */
-  document.documentElement.classList.add("splash-on");
-
   var done = false, timer;
   function end(){
     if(done) return;
     done = true; clearTimeout(timer);
     box.classList.add("out");
-    /* Canvas back as the fade STARTS, not when it lands: the app is drawn
-       underneath and white cards over a black page during the fade would be
-       worse than the white strip returning a third of a second early. */
-    document.documentElement.classList.remove("splash-on");
-    /* The bar goes back as the fade lands rather than when it starts, so it
-       stays dark for as long as the screen behind it still is. */
     setTimeout(function(){
       box.hidden = true;
-      if(themeMeta && themeWas !== null) themeMeta.setAttribute("content", themeWas);
       try{ vid.pause(); }catch(e){}
     }, 340);
   }
