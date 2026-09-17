@@ -402,12 +402,29 @@ body.resting{padding-bottom:calc(146px + env(safe-area-inset-bottom))}
 .wo-edit .list{background:var(--surface);padding:8px 14px 14px}
 .erow{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--outline-soft)}
 .erow:last-of-type{border-bottom:none}
-.erow .en{flex:1;min-width:0;font-size:14px}
+.erow .en{flex:1;min-width:0;font-size:14px;text-align:left;padding:0;min-height:34px}
 .erow .en small{display:block;font-size:11px;color:var(--txt-3);margin-top:2px}
 .erow .mv,.erow .rm{width:34px;height:34px;flex:0 0 34px;border-radius:50%;font-size:14px}
 .erow .mv{color:var(--txt-2)} .erow .mv:active{background:var(--surface-2)}
 .erow .mv[disabled]{opacity:.3}
 .erow .rm{color:var(--red)} .erow .rm:active{background:var(--red-c)}
+/* A tapped movement opens its own editor under the row: which movements take
+   turns in that slot, and which of them is up next. */
+.erow.open{border-bottom:none} .erow.open .en{color:var(--blue)}
+.slot-ed{margin:0 0 6px;padding:2px 0 10px 12px;border-left:2px solid var(--outline);
+  border-bottom:1px solid var(--outline-soft)}
+.slot-ed:last-of-type{border-bottom:none}
+.slot-ed .q{font-size:12px;line-height:1.5;color:var(--txt-2);margin:4px 0 6px}
+.alt-m{display:flex;align-items:center;gap:6px;padding:5px 0}
+.alt-m .n{flex:1;min-width:0;font-size:13.5px}
+.alt-m .n small{display:block;font-size:11px;color:var(--txt-3);margin-top:1px}
+.alt-m .n.due small{color:var(--green-on);font-weight:500}
+.alt-m .act{min-height:32px;padding:0 11px;border-radius:100px;border:1px solid var(--outline);
+  background:var(--surface);font-size:11.5px;color:var(--blue);white-space:nowrap}
+.alt-m .act:active{background:var(--blue-c)}
+.alt-m .rm{width:32px;height:32px;flex:0 0 32px;border-radius:50%;color:var(--red);font-size:14px}
+.alt-m .rm:active{background:var(--red-c)}
+.slot-ed .mini-row{margin-top:8px}
 
 .picker{background:var(--surface-2);border-radius:14px;padding:12px;margin-top:10px}
 .picker .ph{font-size:12px;font-weight:500;color:var(--txt-2);margin-bottom:10px}
@@ -1069,7 +1086,6 @@ function lastSessionDate(){
 function normalizeSlot(it, cycle){
   var defs = [{role:"top",scheme:"failure",progression:"double"}];
   if(typeof it === "string") return {ex:it, sets:defs};
-  if(it.alt && !it.sets) return {ex:it.alt[cycle % it.alt.length], alt:it.alt, sets:defs};
   var exId = it.ex || (it.alt ? it.alt[cycle % it.alt.length] : null);
   return {ex:exId, alt:it.alt, sets:it.sets || defs, link:it.link};
 }
@@ -1138,6 +1154,7 @@ function daysBetween(a,b){ return Math.round((new Date(b) - new Date(a)) / 86400
 function fmtDate(d){ var p = d.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]).toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function exOf(id){ return LIB[id] || S.custom[id] || null; }
+function exName(id){ var e = exOf(id); return e ? e.n : id; }
 function allEx(){ var o = {}; for(var k in LIB) o[k] = LIB[k]; for(var j in S.custom) o[j] = S.custom[j]; return o; }
 function range(e){ var p = String(e.rr).split("-").map(Number); return [p[0]||1, p[1]||p[0]||1]; }
 
@@ -1396,13 +1413,26 @@ function resolveList(code, cycle){
     return it.ex;
   });
 }
-function altPartner(code, cycle, id){
+/* ---- slots that take turns ----
+   {alt:[ids]} puts one member in the session each time the workout comes
+   around: alt[cycle % alt.length], cycle being how many of that workout are
+   logged. The count is by workout, not by which member was actually done, so
+   swapping inside a session does not move the rotation on - "Do next" in
+   Program is how that is corrected. */
+function cyclesOf(code){
+  return S.sessions.filter(function(s){ return s.workout === code && s.instance === S.active; }).length;
+}
+/* Every movement a slot holds: one for a plain slot, all of them for a pair. */
+function slotIds(it){ return typeof it === "string" ? [it] : it.alt ? it.alt : [it.ex]; }
+function altDue(code, it){ return it.alt[cyclesOf(code) % it.alt.length]; }
+/* The other members of the slot id belongs to in this workout, if it takes turns. */
+function altPartners(code, id){
   var list = prog()[code].list;
   for(var i=0;i<list.length;i++){
     var it = list[i];
-    if(typeof it === "object" && it.alt && it.alt.indexOf(id) > -1) return it.alt.filter(function(x){ return x !== id; })[0];
+    if(typeof it === "object" && it.alt && it.alt.indexOf(id) > -1) return it.alt.filter(function(x){ return x !== id; });
   }
-  return null;
+  return [];
 }
 var tt;
 function toast(m, gold){
@@ -1615,6 +1645,10 @@ function setTimerSecs(v){
 
 /* ---------------- ui state ---------------- */
 var tab = "today", open_ = null, pick = null, adding = false, editWO = null, addTo = null, newForm = false;
+/* Program editor: the slot expanded inside editWO, and - when the picker is
+   choosing a movement for a slot that takes turns rather than adding a new
+   slot - which slot and which member (j, -1 to add one). */
+var editSlot = null, altPick = null;
 var entry = {};
 /* Correcting a set that is already logged.
    editingDraft  {ex, i} - a set in the session in progress, i counting that
@@ -1671,7 +1705,7 @@ function viewToday(){
   var auto = nextWorkout();
   var code = pick || auto.code;
   setAccent(code);
-  var cycle = S.sessions.filter(function(s){ return s.workout === code && s.instance === S.active; }).length;
+  var cycle = cyclesOf(code);
   var lastOf = S.sessions.slice().reverse().filter(function(s){ return s.workout === code && s.instance === S.active; })[0];
   var since = lastOf ? daysBetween(lastOf.date, today()) : null;
 
@@ -1816,7 +1850,7 @@ function card(d, id, i){
   /* "Top of range" is a progression signal. A set prescribed to stop short has
      no top to reach, so it never lights up. */
   var atTop = !plain && reps >= hi;
-  var partner = altPartner(d.workout, d.cycle, id);
+  var partners = altPartners(d.workout, id);
 
   var sameLastPR = t && t.last && t.pr && t.last.reps === t.pr.reps && t.last.weight === t.pr.weight && t.last.date === t.pr.date;
 
@@ -1951,7 +1985,7 @@ function card(d, id, i){
       : atTop ? "Log - top of range" : "Log set")+'</button>'
     + '<div class="mini-row">'
     + (editingHere ? '<button class="mini" onclick="cancelDraftEdit()">Cancel edit</button>' : '')
-    + (partner ? '<button class="mini" onclick="swapAlt(\''+id+'\',\''+partner+'\')">Swap to '+esc(exOf(partner).n)+'</button>' : '')
+    + partners.map(function(p){ return '<button class="mini" onclick="swapAlt(\''+id+'\',\''+p+'\')">Swap to '+esc(exName(p))+'</button>'; }).join("")
     + '<button class="mini warn" onclick="dropToday(\''+id+'\')">Remove from today</button></div>'
     + '</div>' + cycTail + '</article>';
 }
@@ -2104,9 +2138,9 @@ function slotLabel(it){
   if(it.ex){ var e2 = exOf(it.ex); return e2 ? e2.n : it.ex; }
   return "?";
 }
-function slotSub(it){
+function slotSub(c, it){
   if(typeof it === "string"){ var e = exOf(it); return e ? e.g+" · "+e.rr+" reps" : "unknown"; }
-  if(it.alt) return "alternates by cycle"+(it.sets && it.sets.length > 1 ? " · "+it.sets.length+" sets" : "");
+  if(it.alt) return "takes turns · next: "+esc(exName(altDue(c, it)))+(it.sets && it.sets.length > 1 ? " · "+it.sets.length+" sets" : "");
   if(it.ex){ var e2 = exOf(it.ex); var extra = it.sets && it.sets.length > 1 ? " · "+it.sets.length+" sets" : "";
     var sub = it.sets && it.sets[0] && it.sets[0].scheme === "submax" ? " · not to failure" : "";
     return e2 ? e2.g+" · "+rrLabel(it.sets && it.sets[0] && it.sets[0].rr ? it.sets[0].rr : e2.rr)+" reps"+extra+sub : "unknown"; }
@@ -2179,18 +2213,20 @@ function viewData(){
 
   var progHtml = rot.map(function(c){
     var open = editWO === c, items = prog()[c].list;
-    return '<div class="wo-edit"><button class="h" onclick="editWO='+(open ? 'null' : "'"+c+"'")+';addTo=null;newForm=false;render()">'
+    return '<div class="wo-edit"><button class="h" onclick="openWO('+(open ? 'null' : "'"+c+"'")+')">'
       + '<span class="l" style="'+wlStyle(c)+'">'+c+'</span><span class="t">'+esc(prog()[c].focus)+'</span>'
       + '<span class="c">'+items.length+' &middot; '+(open ? '&#9650;' : '&#9660;')+'</span></button>'
       + (open ? '<div class="list">'
         + (prog()[c].note ? '<div class="cite" style="margin:2px 0 12px">'+esc(prog()[c].note)+'</div>' : '')
         + items.map(function(it, i){
-          return '<div class="erow"><span class="en">'+esc(slotLabel(it))+'<small>'+slotSub(it)+'</small></span>'
+          var sopen = editSlot === i;
+          return '<div class="erow'+(sopen ? ' open' : '')+'"><button class="en" onclick="openSlot('+i+')">'+esc(slotLabel(it))+'<small>'+slotSub(c, it)+'</small></button>'
             + '<button class="mv" onclick="move(\''+c+'\','+i+',-1)" aria-label="move up"'+(i === 0 ? ' disabled' : '')+'>&uarr;</button>'
             + '<button class="mv" onclick="move(\''+c+'\','+i+',1)" aria-label="move down"'+(i === items.length-1 ? ' disabled' : '')+'>&darr;</button>'
-            + '<button class="rm" onclick="removeEx(\''+c+'\','+i+')" aria-label="remove">&times;</button></div>';
+            + '<button class="rm" onclick="removeEx(\''+c+'\','+i+')" aria-label="remove">&times;</button></div>'
+            + (sopen ? slotEditor(c, i, it) : '');
         }).join("")
-        + (addTo === c ? pickerFor(c) : '<button class="addbar" onclick="addTo=\''+c+'\';newForm=false;render()">+ Add exercise</button>')
+        + (addTo === c && !altPick ? pickerFor(c) : '<button class="addbar" onclick="openAdd(\''+c+'\')">+ Add exercise</button>')
         + '</div>' : '')
       + '</div>';
   }).join("");
@@ -2242,7 +2278,7 @@ function viewData(){
     + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
     + (tmpl && tmpl.blurb ? '<p>'+esc(tmpl.blurb)+'</p>' : '')
     + runs + cite + nextNote + staleNote
-    + '<p>Tap a workout to add, remove or reorder movements.</p>'
+    + '<p>Tap a workout to add, remove or reorder movements. Tap a movement to have it take turns with another, or to change which one is up next.</p>'
     + progHtml
     + '<button class="btn-o" onclick="resetProgram()">Reset to source template</button></div>'
     + timerPanel
@@ -2279,14 +2315,41 @@ function viewData(){
     + tplHtml + '</div>';
 }
 
+/* The editor under a tapped movement. A plain slot can be made to take turns
+   with another movement; one that already does lists its members in the order
+   they come around, and lets any of them be moved up to go next. */
+function slotEditor(c, i, it){
+  var picking = addTo === c && altPick && altPick.i === i;
+  var ids = slotIds(it), n = ids.length;
+  if(n < 2){
+    return '<div class="slot-ed">'+(picking ? pickerFor(c)
+      : '<div class="mini-row"><button class="mini" onclick="pickAlt(\''+c+'\','+i+',-1)">Take turns with another movement</button></div>')
+      + '</div>';
+  }
+  var k = cyclesOf(c) % n;
+  return '<div class="slot-ed"><p class="q">One of these each time '+c+' comes around, in turn.</p>'
+    + ids.map(function(x, j){
+        var t = (j - k + n) % n, name = exName(x);
+        return '<div class="alt-m"><span class="n'+(t === 0 ? ' due' : '')+'">'+esc(name)
+          + '<small>'+(t === 0 ? 'next time' : t === 1 ? 'the time after' : (t+1)+' turns from now')+'</small></span>'
+          + (t === 0 ? '' : '<button class="act" onclick="altNext(\''+c+'\','+i+',\''+x+'\')">Do next</button>')
+          + '<button class="act" onclick="pickAlt(\''+c+'\','+i+','+j+')">Replace</button>'
+          + '<button class="rm" onclick="dropAlt(\''+c+'\','+i+','+j+')" aria-label="remove '+esc(name)+'">&times;</button></div>';
+      }).join("")
+    + (picking ? pickerFor(c)
+      : '<div class="mini-row"><button class="mini" onclick="pickAlt(\''+c+'\','+i+',-1)">+ Add another to take turns</button></div>')
+    + '</div>';
+}
 function pickerFor(c){
   var A = allEx(), used = {};
-  prog()[c].list.forEach(function(it){
-    if(typeof it === "string") used[it] = 1;
-    else if(it.alt) it.alt.forEach(function(x){ used[x] = 1; });
-    else if(it.ex) used[it.ex] = 1;
-  });
+  prog()[c].list.forEach(function(it){ slotIds(it).forEach(function(x){ used[x] = 1; }); });
   var pool = Object.keys(A).filter(function(x){ return !used[x]; });
+  /* Choosing for a slot that takes turns, rather than adding a slot. */
+  var alt = addTo === c ? altPick : null, target = alt ? prog()[c].list[alt.i] : null;
+  var head = !alt ? 'Add to workout '+c
+    : alt.j < 0 ? (slotIds(target).length < 2 ? esc(slotLabel(target))+' takes turns with&hellip;' : 'Add another to take turns')
+    : 'Replace '+esc(exName(slotIds(target)[alt.j]))+' with&hellip;';
+  var choose = function(x){ return alt ? "setAlt('"+c+"',"+alt.i+","+alt.j+",'"+x+"')" : "addEx('"+c+"','"+x+"')"; };
   if(newForm){
     return '<div class="picker"><div class="ph">New exercise</div><div class="frm">'
       + '<div class="full"><label>Name</label><input id="nf_n" placeholder="e.g. Machine Chest Press"></div>'
@@ -2298,11 +2361,11 @@ function pickerFor(c){
       + '<div class="mini-row"><button class="mini" onclick="createEx(\''+c+'\')">Save exercise</button>'
       + '<button class="mini warn" onclick="newForm=false;render()">Cancel</button></div></div>';
   }
-  return '<div class="picker"><div class="ph">Add to workout '+c+'</div>'
-    + pool.map(function(x){ return '<button class="opt" onclick="addEx(\''+c+'\',\''+x+'\')">'+esc(A[x].n)
+  return '<div class="picker"><div class="ph">'+head+'</div>'
+    + pool.map(function(x){ return '<button class="opt" onclick="'+choose(x)+'">'+esc(A[x].n)
         + '<small>'+esc(A[x].g)+' &middot; '+esc(A[x].rr)+' reps</small></button>'; }).join("")
     + '<div class="mini-row"><button class="mini" onclick="newForm=true;render()">+ New exercise</button>'
-    + '<button class="mini warn" onclick="addTo=null;render()">Cancel</button></div></div>';
+    + '<button class="mini warn" onclick="closePicker()">Cancel</button></div></div>';
 }
 function empty(b,m){ return '<div class="empty"><div class="big">'+b+'</div><p>'+m+'</p></div>'; }
 
@@ -2588,9 +2651,66 @@ function dropToday(id){
 function move(c,i,dir){
   var l = prog()[c].list, j = i + dir;
   if(j < 0 || j >= l.length) return;
-  var tmp = l[i]; l[i] = l[j]; l[j] = tmp; markEdited(); save(); render();
+  var tmp = l[i]; l[i] = l[j]; l[j] = tmp;
+  /* An open editor follows its row. */
+  if(editSlot === i) editSlot = j; else if(editSlot === j) editSlot = i;
+  if(altPick){ if(altPick.i === i) altPick.i = j; else if(altPick.i === j) altPick.i = i; }
+  markEdited(); save(); render();
 }
-function removeEx(c,i){ prog()[c].list.splice(i,1); markEdited(); save(); toast("Removed"); render(); }
+function removeEx(c,i){
+  prog()[c].list.splice(i,1);
+  if(editSlot === i) editSlot = null; else if(editSlot > i) editSlot--;
+  markEdited(); addTo = null; altPick = null; save(); toast("Removed"); render();
+}
+/* ---- editor state ---- */
+function openWO(c){ editWO = c; editSlot = null; addTo = null; altPick = null; newForm = false; render(); }
+function openSlot(i){ editSlot = editSlot === i ? null : i; addTo = null; altPick = null; newForm = false; render(); }
+function openAdd(c){ addTo = c; altPick = null; newForm = false; render(); }
+function pickAlt(c, i, j){ addTo = c; altPick = {i:i, j:j}; newForm = false; render(); }
+function closePicker(){ addTo = null; altPick = null; newForm = false; render(); }
+/* A picker closing inside a slot editor makes the page shorter, and the
+   browser keeps its scroll offset, which lands you somewhere below the row you
+   were editing. Bring that row back. */
+function showSlot(){
+  var el = document.querySelector(".erow.open");
+  if(el && el.scrollIntoView) el.scrollIntoView({block:"center"});
+}
+/* ---- slots that take turns ---- */
+/* Slot it rebuilt around ids. Sets and a pre-exhaust link belong to the slot,
+   not to the movement, so they stay whichever movements are in it; a slot
+   back down to one movement returns to the plain form it started in. */
+function slotWith(it, ids){
+  var o = typeof it === "object" ? it : {};
+  if(ids.length < 2 && !o.sets && !o.link) return ids[0];
+  var out = ids.length > 1 ? {alt:ids} : {ex:ids[0]};
+  if(o.sets) out.sets = o.sets;
+  if(o.link) out.link = o.link;
+  return out;
+}
+function setAlt(c, i, j, id){
+  var l = prog()[c].list, ids = slotIds(l[i]).slice();
+  if(j < 0) ids.push(id); else ids[j] = id;
+  l[i] = slotWith(l[i], ids);
+  markEdited(); addTo = null; altPick = null; newForm = false; save();
+  toast(j >= 0 ? "Replaced" : ids.length === 2 ? "Now takes turns" : "Added"); render(); showSlot();
+}
+function dropAlt(c, i, j){
+  var l = prog()[c].list, ids = slotIds(l[i]).slice();
+  ids.splice(j, 1);
+  if(!ids.length) return removeEx(c, i);
+  l[i] = slotWith(l[i], ids);
+  markEdited(); addTo = null; altPick = null; save();
+  toast(ids.length === 1 ? "No longer takes turns" : "Removed"); render(); showSlot();
+}
+/* Make id the member due next. A rotation rather than a swap, so the order the
+   rest come around in afterwards is kept. */
+function altNext(c, i, id){
+  var l = prog()[c].list, ids = slotIds(l[i]), n = ids.length;
+  var k = cyclesOf(c) % n, p = ids.indexOf(id);
+  if(n < 2 || p < 0) return;
+  l[i] = slotWith(l[i], ids.map(function(_, m){ return ids[(m - k + p + n) % n]; }));
+  markEdited(); save(); toast(exName(id)+" next time"); render();
+}
 function addEx(c,id){ prog()[c].list.push(id); markEdited(); addTo = null; save(); toast("Added"); render(); }
 function createEx(c){
   var g = function(id){ var el = document.getElementById(id); return el ? (el.value || "").trim() : ""; };
@@ -2601,6 +2721,7 @@ function createEx(c){
   var id = "cx_" + Date.now().toString(36);
   S.custom[id] = {n:n, g:g("nf_g") || "Other", rr:rr.replace(/\s/g,""), mult:mult,
     step:Number(g("nf_s")) || 5, pct:Number(g("nf_p")) || 5, unit: mult === 2 ? "per dumbbell" : "load", baseSet:"", baseOn:""};
+  if(altPick && addTo === c) return setAlt(c, altPick.i, altPick.j, id);
   prog()[c].list.push(id); markEdited(); newForm = false; addTo = null; save(); toast(n + " added"); render();
 }
 function resetProgram(){
@@ -2953,7 +3074,7 @@ function playSplash(){
   var btns = document.querySelectorAll(".nav button");
   for(var i=0;i<btns.length;i++){
     btns[i].addEventListener("click", function(){
-      tab = this.dataset.tab; open_ = null; adding = false; addTo = null; newForm = false;
+      tab = this.dataset.tab; open_ = null; adding = false; addTo = null; altPick = null; newForm = false;
       editingDraft = null; histEdit = null; histEntry = null; render();
     });
   }
