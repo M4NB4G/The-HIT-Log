@@ -438,6 +438,9 @@ body.resting{padding-bottom:calc(146px + env(safe-area-inset-bottom))}
 .frm input,.frm select{width:100%;min-height:46px;background:var(--surface);border:1px solid var(--outline);
   border-radius:10px;padding:0 12px;color:var(--txt);font-size:15px}
 .frm input:focus,.frm select:focus{outline:none;border-color:var(--blue);border-width:2px}
+.ph-row{display:flex;align-items:flex-start;gap:10px}
+.ph-row h3{flex:1}
+.mini.ren{flex:0 0 auto;min-height:32px;padding:0 14px;font-size:12px;margin-top:-4px}
 .frm .hint{font-size:11px;color:var(--txt-3);margin-top:5px;line-height:1.45}
 /* Movement library. The same row as a workout's list, so it reads as the
    same kind of thing, with the editor opening underneath the row tapped. */
@@ -1033,7 +1036,8 @@ function load(){
      by hand, so the template is always the authority. */
   for(var nk in d.instances){
     var nt = TEMPLATES[d.instances[nk].source];
-    if(nt && d.instances[nk].name !== nt.name) d.instances[nk].name = nt.name;
+    /* ...unless you named it yourself, which is yours to keep. */
+    if(nt && !d.instances[nk].renamed && d.instances[nk].name !== nt.name) d.instances[nk].name = nt.name;
   }
   /* Rename any pre-letter workout codes (W1..W4, D1/D2/D4) to A, B, C, D.
      Positional, so it holds for any legacy code without a lookup table. */
@@ -2263,6 +2267,7 @@ function viewData(){
       + '<span class="l" style="'+wlStyle(c)+'">'+c+'</span><span class="t">'+esc(prog()[c].focus)+'</span>'
       + '<span class="c">'+items.length+' &middot; '+(open ? '&#9650;' : '&#9660;')+'</span></button>'
       + (open ? '<div class="list">'
+        + '<div class="mini-row" style="margin:0 0 6px"><button class="mini" onclick="renameFocus(\''+c+'\')">Rename &ldquo;'+esc(prog()[c].focus)+'&rdquo;</button></div>'
         + (prog()[c].note ? '<div class="cite" style="margin:2px 0 12px">'+esc(prog()[c].note)+'</div>' : '')
         + items.map(function(it, i){
           var sopen = editSlot === i;
@@ -2321,7 +2326,8 @@ function viewData(){
     + '</div>';
 
   return instPicker
-    + '<div class="panel"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
+    + '<div class="panel"><div class="ph-row"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
+    + '<button class="mini ren" onclick="renameProgram()">Rename</button></div>'
     + (tmpl && tmpl.blurb ? '<p>'+esc(tmpl.blurb)+'</p>' : '')
     + runs + cite + nextNote + staleNote
     + '<p>Tap a workout to add, remove or reorder movements. Tap a movement to have it take turns with another, or to change which one is up next.</p>'
@@ -2825,6 +2831,7 @@ function mvForm(id){
         + '<div class="hint">Only if earlier totals were worked out with a different sled or bar weight. Every saved set'
         + (u.baseline ? ' and the baseline' : '')+' shifts by the difference; you see the list before anything changes.</div></div>'
       : '')
+    + baselineFields(id)
     + '</div>'
     + (u && (u.sets || u.draft || u.where.length)
       ? '<div class="hint" style="margin-top:10px;font-size:12px;color:var(--txt-3)">'
@@ -2839,6 +2846,20 @@ function mvForm(id){
 }
 function openMv(id){ mvEdit = mvEdit === id ? null : id; newForm = false; addTo = null; altPick = null; render(); }
 function closeMv(){ mvEdit = null; newForm = false; render(); }
+/* A baseline is a best set from before the app, "reps x weight" plus when.
+   It seeds the first target and stands as the PR until something beats it. */
+function parseBaseline(b){
+  var m = b && b.set && String(b.set).match(/^(\d+)\s*x\s*([\d.]+)$/i);
+  return m ? {reps:+m[1], weight:+m[2], date:b.date || ""} : null;
+}
+function baselineFields(id){
+  var b = id ? parseBaseline(S.baselines[id]) : null;
+  return '<div class="full"><label>Baseline: best set from before the app (optional)</label></div>'
+    + '<div><label>Reps</label><input id="mv_br" type="number" inputmode="numeric" value="'+(b ? b.reps : '')+'"></div>'
+    + '<div><label>Total weight</label><input id="mv_bw" type="number" inputmode="decimal" value="'+(b ? b.weight : '')+'"></div>'
+    + '<div class="full"><label>Date of that set</label><input id="mv_bd" type="date" value="'+esc(b ? b.date : '')+'">'
+    + '<div class="hint">Counts as your PR until a logged set beats it. Clear reps and weight to remove it.</div></div>';
+}
 /* Read and check the form. Null (after a toast) when something is off. */
 function mvRead(){
   var v = function(k){ var el = document.getElementById(k); return el ? String(el.value || "").trim() : ""; };
@@ -2859,7 +2880,14 @@ function mvRead(){
            unit: v("mv_u") || (kind === "2" ? "per dumbbell" : kind === "bw" ? "lb" : "load")};
   if(kind === "bw") f.bw = true;
   if(base > 0 && kind === "1") f.base = r2(base);
-  return {def:f, assumed: a === "" || kind !== "1" ? null : r2(Number(a))};
+  var br = v("mv_br"), bw = v("mv_bw"), bd = v("mv_bd"), bl = null;
+  if(br !== "" || bw !== ""){
+    if(!(Number(br) >= 1) || Math.floor(Number(br)) !== Number(br)){ toast("Baseline reps must be a whole number"); return null; }
+    if(bw === "" ? kind !== "bw" : !(Number(bw) >= 0)){ toast("Baseline needs a weight"); return null; }
+    if(bd && !/^\d{4}-\d{2}-\d{2}$/.test(bd)){ toast("Baseline date looks wrong"); return null; }
+    bl = {set: Number(br) + "x" + r2(Number(bw || 0)), date: bd};
+  }
+  return {def:f, assumed: a === "" || kind !== "1" ? null : r2(Number(a)), baseline:bl};
 }
 /* Re-derive e1 and volume from reps and weight. Used after anything that
    changes how a logged number reads: a shifted sled, or a load type fixed. */
@@ -2871,16 +2899,18 @@ function rederive(id){
 }
 /* Correct every saved total for a sled that was assumed wrong. The draft is
    left out: those sets were logged today, against today's numbers. */
-function shiftHistory(id, delta){
+function shiftHistory(id, delta, keepBaseline){
   S.sessions.forEach(function(s){ s.sets.forEach(function(x){ if(x.ex === id) x.weight = r2(x.weight + delta); }); });
+  if(keepBaseline) return;
   var b = S.baselines[id], m = b && b.set && b.set.match(/^(\d+)\s*x\s*([\d.]+)$/i);
   if(m) b.set = m[1] + "x" + r2(Number(m[2]) + delta);
 }
-function shiftPreview(id, delta){
+function shiftPreview(id, delta, keepBaseline){
   var lines = [];
   S.sessions.forEach(function(s){ s.sets.forEach(function(x){
     if(x.ex === id) lines.push(fmtDate(s.date)+": "+x.reps+" × "+x.weight+" → "+r2(x.weight + delta));
   }); });
+  if(keepBaseline) return lines;
   var b = S.baselines[id], m = b && b.set && b.set.match(/^(\d+)\s*x\s*([\d.]+)$/i);
   if(m) lines.push("Baseline: "+m[1]+" × "+m[2]+" → "+r2(Number(m[2]) + delta));
   return lines;
@@ -2892,6 +2922,7 @@ function saveMovement(id){
     var nid = "cx_" + Date.now().toString(36), seq = 0;
     while(S.custom[nid] || LIB[nid]) nid = "cx_" + Date.now().toString(36) + (++seq);
     S.custom[nid] = Object.assign(f, {baseSet:"", baseOn:""});
+    if(r.baseline) S.baselines[nid] = r.baseline;
     /* Made from a workout's picker: it goes straight into that workout, or
        into the slot it was chosen for. Made from the library: nowhere yet. */
     if(newForm && addTo){
@@ -2903,6 +2934,10 @@ function saveMovement(id){
     save(); toast(f.n + " added"); render(); return;
   }
   var old = exOf(id), u = usageOf(id);
+  /* A baseline typed into the form is already the number you mean, so a
+     sled correction leaves it alone; an untouched one shifts with the sets. */
+  var ob = parseBaseline(S.baselines[id]);
+  var blTouched = JSON.stringify(r.baseline) !== JSON.stringify(ob ? {set:ob.reps+"x"+ob.weight, date:ob.date} : null);
   var delta = r.assumed === null ? 0 : r2((f.base || 0) - r.assumed);
   if(delta && u.draft){ toast("Finish today's session before correcting past sets"); return; }
   var kindChanged = loadKind(old) !== loadKind(f);
@@ -2911,7 +2946,7 @@ function saveMovement(id){
        +" to "+({"1":"single load","2":"per dumbbell / side","bw":"bodyweight"})[loadKind(f)]+"?\n\n"
        +(u.sets + u.draft)+" logged set(s) keep their numbers but will be read the new way, so e1 and volume are recalculated.")) return;
   if(delta){
-    var lines = shiftPreview(id, delta);
+    var lines = shiftPreview(id, delta, blTouched);
     if(!lines.length) delta = 0;
     else if(!confirm("Shift "+lines.length+" saved weight"+(lines.length === 1 ? "" : "s")+" by "+(delta > 0 ? "+" : "")+delta+" lb?\n\n"
        + lines.join("\n"))) return;
@@ -2929,7 +2964,8 @@ function saveMovement(id){
     var keep = S.custom[id];
     S.custom[id] = Object.assign(f, {baseSet:keep.baseSet || "", baseOn:keep.baseOn || ""});
   }
-  if(delta) shiftHistory(id, delta);
+  if(delta) shiftHistory(id, delta, blTouched);
+  if(blTouched){ if(r.baseline) S.baselines[id] = r.baseline; else delete S.baselines[id]; }
   if(delta || kindChanged) rederive(id);
   /* An entry already open for this movement holds plates worked out against
      the old sled. Rebuild it rather than log a stale total. */
@@ -2991,6 +3027,27 @@ function movementsPanel(){
     + (libOpen ? 'Hide' : 'Show')+' built-in movements ('+lib.length+')</button>'
     + (libOpen ? '<div class="mvlist">'+byGroup(lib)+'</div>' : '')
     + '</div>';
+}
+/* Names are labels only: sessions point at instance ids and workout codes,
+   so renaming never touches history. A blank name goes back to the
+   template's own. */
+function renameProgram(){
+  var inst = S.instances[S.active], t = TEMPLATES[inst.source];
+  var v = prompt("Program name (blank for "+(t ? t.name : "the original")+")", inst.name);
+  if(v === null) return;
+  v = v.trim().slice(0, 60);
+  if(!v || (t && v === t.name)){ inst.name = t ? t.name : inst.name; delete inst.renamed; }
+  else { inst.name = v; inst.renamed = true; }
+  save(); toast("Renamed"); render();
+}
+function renameFocus(c){
+  var w = prog()[c]; if(!w) return;
+  var v = prompt("What workout "+c+" trains", w.focus || "");
+  if(v === null) return;
+  v = v.trim().slice(0, 40);
+  if(!v) return toast("Give it a name");
+  if(v === w.focus) return;
+  w.focus = v; markEdited(); save(); toast("Renamed"); render();
 }
 function resetProgram(){
   var inst = S.instances[S.active];
