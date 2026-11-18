@@ -2185,11 +2185,11 @@ function slotLabel(it){
   return "?";
 }
 function slotSub(c, it){
-  if(typeof it === "string"){ var e = exOf(it); return e ? e.g+" · "+e.rr+" reps" : "unknown"; }
+  if(typeof it === "string"){ var e = exOf(it); return e ? esc(e.g)+" · "+esc(e.rr)+" reps" : "unknown"; }
   if(it.alt) return "takes turns · next: "+esc(exName(altDue(c, it)))+(it.sets && it.sets.length > 1 ? " · "+it.sets.length+" sets" : "");
   if(it.ex){ var e2 = exOf(it.ex); var extra = it.sets && it.sets.length > 1 ? " · "+it.sets.length+" sets" : "";
     var sub = it.sets && it.sets[0] && it.sets[0].scheme === "submax" ? " · not to failure" : "";
-    return e2 ? e2.g+" · "+rrLabel(it.sets && it.sets[0] && it.sets[0].rr ? it.sets[0].rr : e2.rr)+" reps"+extra+sub : "unknown"; }
+    return e2 ? esc(e2.g)+" · "+esc(rrLabel(it.sets && it.sets[0] && it.sets[0].rr ? it.sets[0].rr : e2.rr))+" reps"+extra+sub : "unknown"; }
   return "";
 }
 function viewData(){
@@ -2772,8 +2772,10 @@ function addEx(c,id){ prog()[c].list.push(id); markEdited(); addTo = null; save(
    sit in S.overrides and are laid over LIB by exOf(), so "Restore default"
    is just forgetting them. */
 function muscleGroups(){
-  var g = {};
-  Object.keys(LIB).forEach(function(k){ g[LIB[k].g] = 1; });
+  /* Every group in use, yours included, so a group made once is offered
+     from then on instead of being typed again (and typed differently). */
+  var g = {}, A = allEx();
+  Object.keys(A).forEach(function(k){ if(A[k].g) g[A[k].g] = 1; });
   return Object.keys(g).sort();
 }
 /* Every set and baseline a movement has, saved or in today's draft. The count
@@ -2797,7 +2799,8 @@ function mvForm(id){
   var groups = muscleGroups(), custom = id && !LIB[id];
   if(e.g && groups.indexOf(e.g) < 0) groups.push(e.g);
   var kind = loadKind(e), u = id ? usageOf(id) : null;
-  var hasHist = u && (u.sets || u.baseline);
+  /* Only a single load has a sled, so only it can have been assumed wrong. */
+  var hasHist = u && (u.sets || u.baseline) && kind === "1";
   var opt = function(v, l, on){ return '<option value="'+esc(v)+'"'+(on ? ' selected' : '')+'>'+esc(l)+'</option>'; };
   return '<div class="frm">'
     + '<div class="full"><label>Name</label><input id="mv_n" value="'+esc(e.n)+'" placeholder="e.g. Machine Chest Press"></div>'
@@ -2856,7 +2859,7 @@ function mvRead(){
            unit: v("mv_u") || (kind === "2" ? "per dumbbell" : kind === "bw" ? "lb" : "load")};
   if(kind === "bw") f.bw = true;
   if(base > 0 && kind === "1") f.base = r2(base);
-  return {def:f, assumed: a === "" ? null : r2(Number(a))};
+  return {def:f, assumed: a === "" || kind !== "1" ? null : r2(Number(a))};
 }
 /* Re-derive e1 and volume from reps and weight. Used after anything that
    changes how a logged number reads: a shifted sled, or a load type fixed. */
@@ -2939,6 +2942,7 @@ function deleteMovement(id){
   var u = usageOf(id), n = S.custom[id].n;
   if(u.sets || u.draft) return toast(n+" has "+(u.sets + u.draft)+" logged set"+(u.sets + u.draft === 1 ? "" : "s")+" - it stays so history keeps its name");
   if(u.where.length) return toast("Take it out of "+u.where.join(", ")+" first");
+  if(S.draft && S.draft.order.indexOf(id) > -1) return toast("Remove it from today's session first");
   if(!confirm("Delete "+n+"? It has no logged sets and is not in any workout.")) return;
   delete S.custom[id]; delete S.baselines[id]; delete entry[id];
   mvEdit = null; save(); toast("Deleted"); render();
