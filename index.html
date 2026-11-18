@@ -1000,11 +1000,16 @@ function letterCodes(inst, d, instKey){
   return true;
 }
 
+var LOAD_BAD = false;
 function load(){
   let d;
   if(!HAS_LS) d = mem || (mem = blank());
   else {
-    try{ d = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+    var raw = null;
+    try{ raw = localStorage.getItem(KEY); d = JSON.parse(raw); }catch(e){}
+    /* Something is stored but unreadable. Do not write over it: whatever
+       recovery is possible starts from those bytes. */
+    if(raw && !d) LOAD_BAD = true;
     if(!d){
       /* fall back to v2 and migrate */
       try{ d = JSON.parse(localStorage.getItem(KEY_V2)); }catch(e){}
@@ -1020,10 +1025,10 @@ function load(){
   /* When this phone last wrote an export. Nothing recorded it before, so the
      clock starts at the first load that knows about it rather than nagging
      someone who exported yesterday. */
-  if(!d.lastExport){
+  if(!d.lastExport || isNaN(Date.parse(d.lastExport))){
     d.lastExport = new Date().toISOString();
     /* Written now, or every launch before the next save would restart it. */
-    if(HAS_LS){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+    if(HAS_LS && !LOAD_BAD){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
   }
   if(!d.sessions) d.sessions = [];
   /* Absent baselines means none, not "seed somebody else's". */
@@ -1073,10 +1078,11 @@ function save(){ if(HAS_LS){ try{ localStorage.setItem(KEY, JSON.stringify(S)); 
 let S = load();
 /* Once: bodyweight sets saved before e1 and volume counted bodyweight read 0
    for both. Re-derive them; PR flags and stored weights are not touched. */
-if(!S.bwDerived){
+function deriveBodyweight(){
   Object.keys(allEx()).forEach(function(id){ if(exOf(id).bw) rederive(id); });
-  S.bwDerived = true; save();
+  S.bwDerived = true;
 }
+if(!S.bwDerived){ deriveBodyweight(); if(!LOAD_BAD) save(); }
 
 /** Shorthand for the active instance's program object. */
 function prog(){ return S.instances[S.active].program; }
@@ -1246,11 +1252,24 @@ function draftBW(){ return S.draft && S.draft.bodyweight != null ? S.draft.bodyw
    set in History: the library's rep range. */
 function reflagPRs(id){
   var e = exOf(id); if(!e) return;
-  var lo = range(e)[0];
   S.sessions.forEach(function(s, i){ s.sets.forEach(function(x, j){
     if(x.ex !== id) return;
-    if(isPR(id, x, {s:i, x:j}, lo)) x.pr = true; else delete x.pr;
+    if(isPR(id, x, {s:i, x:j}, prFloor(s, x, e))) x.pr = true; else delete x.pr;
   }); });
+}
+/* The rep count a set had to reach to qualify, as judged when it was logged.
+   Templates pin their own ranges (Mentzer's 1-3 incline), so the library's
+   would strip records that were real. Newer sets carry it; older ones get it
+   from the slot they were logged in; the library is the last resort. */
+function prFloor(s, x, e){
+  if(x.lo != null) return x.lo;
+  var inst = S.instances[s.instance], day = inst && inst.program && inst.program[s.workout];
+  var it = day && day.list.filter(function(t){ return slotIds(t).indexOf(x.ex) > -1; })[0];
+  if(it){
+    var sl = normalizeSlot(it, s.cycle || 0), sd = sl.sets && sl.sets[0];
+    if(sd && sd.rr) return range({rr:sd.rr})[0];
+  }
+  return range(e)[0];
 }
 function suffix(e){ return e.mult === 2 ? " ea" : ""; }
 
@@ -2392,7 +2411,7 @@ function viewData(){
     + '<div class="panel"><h3>Storage</h3><p>'
     + (HAS_LS
         ? 'Saved on this device. '+S.sessions.length+' session'+(S.sessions.length === 1 ? '' : 's')+', '+nSets+' sets. Nothing leaves your phone.'
-          + (exportAge() !== null ? ' Last export '+(exportAge() === 0 ? 'today' : exportAge()+' day'+(exportAge() === 1 ? '' : 's')+' ago')+'.' : '')
+          + ' <span id="lastExp">'+exportText()+'</span>'
         : '<strong style="color:var(--amber-on)">Preview mode - nothing persists.</strong> Deploy this file to a real URL and localStorage takes over.')
     + '</p>'
     /* One install block, three cases. iOS gets written instructions because
@@ -2470,7 +2489,18 @@ function pickerFor(c){
 function empty(b,m){ return '<div class="empty"><div class="big">'+b+'</div><p>'+m+'</p></div>'; }
 
 /* ============================================================ ACTIONS */
-function setBW(v){ if(S.draft){ S.draft.bodyweight = v === "" ? null : Number(v); save(); } }
+function setBW(v){
+  if(!S.draft) return;
+  S.draft.bodyweight = v === "" ? null : Number(v);
+  /* Bodyweight sets already logged today were worked out against the old
+     reading. */
+  var bw = draftBW();
+  S.draft.sets.forEach(function(x){
+    var e = exOf(x.ex);
+    if(e && e.bw){ var dv = derive(e, x.reps, x.weight, bw); x.e1 = dv.e1; x.vol = dv.vol; }
+  });
+  save();
+}
 /* Collapsing or reopening a card abandons any correction in progress: the
    entry it was holding is rebuilt from the prescription on the way in, and a
    stale editingDraft would then write those defaults over the logged set. */
@@ -2576,7 +2606,7 @@ function commit(id){
   var dv = derive(e, reps, weight, draftBW());
   var set = {ex:id, reps:reps, weight:weight, note:st.note || "",
              e1:dv.e1, vol:dv.vol, t:new Date().toISOString(),
-             role:role, setNum:st.setNum || 0};
+             role:role, setNum:st.setNum || 0, lo:activeRange(id, 0)[0]};
   /* A submaximal set records the scheme instead of an ending: there was no
      failure to describe, and the scheme is what keeps it out of PRs. */
   if(submax) set.scheme = "submax"; else set.endedWith = ew;
@@ -2682,7 +2712,10 @@ function deleteSession(idx){
   var s = S.sessions[idx]; if(!s) return;
   if(!confirm("Delete workout "+s.workout+" from "+fmtDate(s.date)+" and its "
     + s.sets.length+" set"+(s.sets.length === 1 ? "" : "s")+"?\n\nThis cannot be undone.")) return;
-  S.sessions.splice(idx, 1); save(); toast("Session deleted"); render();
+  S.sessions.splice(idx, 1);
+  var ids = {}; s.sets.forEach(function(x){ ids[x.ex] = 1; });
+  Object.keys(ids).forEach(reflagPRs);
+  save(); toast("Session deleted"); render();
 }
 /* ---- correcting a set in a saved session ----
    Same controls as the log card, rendered inside the history row. The set
@@ -3210,8 +3243,17 @@ function exportJSON(){
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "hitlog_"+today()+".json"; a.click();
   URL.revokeObjectURL(a.href);
-  S.lastExport = new Date().toISOString(); delete S.exportSnooze;
-  save(); render();
+  S.lastExport = new Date().toISOString(); S.exportedOnce = true; delete S.exportSnooze;
+  save();
+  /* Only Today has something to take down. On Program a re-render would
+     throw away a half-typed movement edit sitting in the same tab. */
+  if(tab === "today") render();
+  else { var sp = document.getElementById("lastExp"); if(sp) sp.textContent = exportText(); }
+}
+function exportText(){
+  var a = exportAge();
+  if(!S.exportedOnce || a === null || a < 0) return "No export from this phone yet.";
+  return "Last export " + (a <= 0 ? "today" : a + " day" + (a === 1 ? "" : "s") + " ago") + ".";
 }
 /* The log lives in this browser and nowhere else, so a lost or wiped phone
    loses all of it. After 30 days without an export, Today says so. "Later"
@@ -3224,7 +3266,9 @@ function exportAge(){
 function exportDue(){
   if(!S.sessions.length) return false;
   var age = exportAge();
-  if(age === null || age < EXPORT_EVERY) return false;
+  /* A date in the future (clock was wrong) or one that cannot be read would
+     otherwise silence the reminder for good. */
+  if(age !== null && age >= 0 && age < EXPORT_EVERY) return false;
   return !(S.exportSnooze && today() < S.exportSnooze);
 }
 function snoozeExport(){
@@ -3234,8 +3278,10 @@ function snoozeExport(){
 }
 function exportNag(){
   if(!exportDue()) return '';
+  var age = exportAge(), known = S.exportedOnce && age !== null && age >= 0;
   return '<div class="xnag"><div class="xt"><b>Back up your log</b>'
-    + '<span>Last export '+exportAge()+' days ago. Everything lives only on this phone.</span></div>'
+    + '<span>'+(known ? 'Last export '+age+' days ago.' : 'No recent export from this phone.')
+    + ' Everything lives only on this phone.</span></div>'
     + '<div class="mini-row"><button class="mini xgo" onclick="exportJSON()">Export JSON</button>'
     + '<button class="mini" onclick="snoozeExport()">Later</button></div></div>';
 }
@@ -3261,7 +3307,8 @@ function importJSON(input){
               not switch off a timer already set up on this phone. */
            timer:d.timer || S.timer || REST_DEFAULT(),
            /* The file just loaded is itself a backup of everything now here. */
-           lastExport:new Date().toISOString()};
+           lastExport:new Date().toISOString(), exportedOnce:true};
+      deriveBodyweight();
       save(); toast("Imported "+d.sessions.length+" sessions"); render();
     }catch(e){ toast("That is not a HIT Log export"); }
     input.value = "";
