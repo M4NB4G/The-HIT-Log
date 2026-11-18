@@ -1266,8 +1266,11 @@ function prFloor(s, x, e){
   var inst = S.instances[s.instance], day = inst && inst.program && inst.program[s.workout];
   var it = day && day.list.filter(function(t){ return slotIds(t).indexOf(x.ex) > -1; })[0];
   if(it){
-    var sl = normalizeSlot(it, s.cycle || 0), sd = sl.sets && sl.sets[0];
-    if(sd && sd.rr) return range({rr:sd.rr})[0];
+    var cyc = s.cycle || 0, sl = normalizeSlot(it, cyc), sd = sl.sets && sl.sets[0];
+    /* Resolved the way startSession does: Yates' lower body alternates
+       ranges by cycle (rrAlt) rather than pinning one. */
+    var rr = sd && (sd.rrAlt ? sd.rrAlt[cyc % sd.rrAlt.length] : sd.rr);
+    if(rr) return range({rr:rr})[0];
   }
   return range(e)[0];
 }
