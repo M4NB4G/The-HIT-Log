@@ -1032,8 +1032,8 @@ function load(){
     d.active = firstKey || null;
   }
   /* Instances copy their name at creation, so renaming a template would leave
-     older copies showing the old label. Nothing lets you rename an instance
-     by hand, so the template is always the authority. */
+     older copies showing the old label. The template is the authority for
+     any instance you have not named yourself. */
   for(var nk in d.instances){
     var nt = TEMPLATES[d.instances[nk].source];
     /* ...unless you named it yourself, which is yours to keep. */
@@ -1167,7 +1167,7 @@ function today(){
        + '-' + String(d.getDate()).padStart(2,'0');
 }
 function daysBetween(a,b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
-function fmtDate(d){ var p = d.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]).toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
+function fmtDate(d){ if(!/^\d{4}-\d{1,2}-\d{1,2}$/.test(d || "")) return ""; var p = d.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]).toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function exOf(id){
   if(LIB[id]){
@@ -2129,7 +2129,8 @@ function viewRecords(){
   var A = allEx();
   var rows = Object.keys(A).map(function(id){
     var b = bestFor(id), t = targetFor(id);
-    return {e:A[id], b:b, t:t, since: b ? daysBetween(b.date, today()) : null};
+    var since = b && b.date ? daysBetween(b.date, today()) : null;
+    return {e:A[id], b:b, t:t, since: isNaN(since) ? null : since};
   }).sort(function(a,b){ return (b.since === null ? -1 : b.since) - (a.since === null ? -1 : a.since); });
   return '<div class="panel"><h3>Records and next targets</h3>'
     /* The seeded-row note only applies once baselines have been loaded, which
@@ -2816,7 +2817,7 @@ function mvForm(id){
     + opt("__new", "New group…", false) + '</select></div>'
     + '<div><label>Rep range</label><input id="mv_r" value="'+esc(e.rr)+'" placeholder="6-10"></div>'
     + '<div class="full" id="mv_gw" style="display:none"><label>New group name</label><input id="mv_g2" placeholder="e.g. Forearms"></div>'
-    + '<div><label>Load type</label><select id="mv_m">'
+    + '<div><label>Load type</label><select id="mv_m" onchange="document.getElementById(\'mv_bwl\').textContent=blLabel(this.value)">'
     + opt("1", "Single load", kind === "1") + opt("2", "Per dumbbell / side", kind === "2")
     + opt("bw", "Bodyweight (+ added)", kind === "bw") + '</select></div>'
     + '<div><label>Unit label</label><input id="mv_u" value="'+esc(e.unit)+'" placeholder="stack, total sled…"></div>'
@@ -2849,19 +2850,20 @@ function closeMv(){ mvEdit = null; newForm = false; render(); }
 /* A baseline is a best set from before the app, "reps x weight" plus when.
    It seeds the first target and stands as the PR until something beats it. */
 function parseBaseline(b){
-  var m = b && b.set && String(b.set).match(/^(\d+)\s*x\s*([\d.]+)$/i);
-  return m ? {reps:+m[1], weight:+m[2], date:b.date || ""} : null;
+  var m = b && b.set && String(b.set).match(/(\d+)\s*x\s*([\d.]+)/i);
+  return m ? {reps:+m[1], weight:+m[2], date:b.date || "", set:m[1]+"x"+m[2]} : null;
 }
+function blLabel(kind){ return kind === "2" ? "Per dumbbell / side" : kind === "bw" ? "Added weight" : "Total weight"; }
 function baselineFields(id){
   var b = id ? parseBaseline(S.baselines[id]) : null;
   return '<div class="full"><label>Baseline: best set from before the app (optional)</label></div>'
     + '<div><label>Reps</label><input id="mv_br" type="number" inputmode="numeric" value="'+(b ? b.reps : '')+'"></div>'
-    + '<div><label>Total weight</label><input id="mv_bw" type="number" inputmode="decimal" value="'+(b ? b.weight : '')+'"></div>'
+    + '<div><label id="mv_bwl">'+blLabel(id ? loadKind(exOf(id)) : "1")+'</label><input id="mv_bw" type="number" inputmode="decimal" value="'+(b ? b.weight : '')+'"></div>'
     + '<div class="full"><label>Date of that set</label><input id="mv_bd" type="date" value="'+esc(b ? b.date : '')+'">'
-    + '<div class="hint">Counts as your PR until a logged set beats it. Clear reps and weight to remove it.</div></div>';
+    + '<div class="hint">Counts as your PR until a logged set beats it. Left blank, the date is today. Clear reps and weight to remove it.</div></div>';
 }
 /* Read and check the form. Null (after a toast) when something is off. */
-function mvRead(){
+function mvRead(id){
   var v = function(k){ var el = document.getElementById(k); return el ? String(el.value || "").trim() : ""; };
   var n = v("mv_n"); if(!n){ toast("Name it first"); return null; }
   var g = v("mv_g") === "__new" ? v("mv_g2") : v("mv_g");
@@ -2881,13 +2883,23 @@ function mvRead(){
   if(kind === "bw") f.bw = true;
   if(base > 0 && kind === "1") f.base = r2(base);
   var br = v("mv_br"), bw = v("mv_bw"), bd = v("mv_bd"), bl = null;
-  if(br !== "" || bw !== ""){
+  /* What the form opened with. Reps and weight are compared on their own, so
+     a date fix is not mistaken for a new set, and a stored set the form
+     cannot validate (an odd import) does not block unrelated edits. */
+  var ob = id ? parseBaseline(S.baselines[id]) : null;
+  var setNow = br === "" && bw === "" ? null : Number(br) + "x" + r2(Number(bw || 0));
+  var setTouched = setNow !== (ob ? ob.set : null);
+  /* A date the field could not show comes back blank: keep the stored one
+     rather than erase it. A new baseline with no date is dated today. */
+  var oldDate = id && S.baselines[id] ? S.baselines[id].date || "" : "";
+  if(!bd) bd = oldDate || today();
+  if(setNow && !setTouched) bl = {set:S.baselines[id].set, date:bd};
+  else if(br !== "" || bw !== ""){
     if(!(Number(br) >= 1) || Math.floor(Number(br)) !== Number(br)){ toast("Baseline reps must be a whole number"); return null; }
     if(bw === "" ? kind !== "bw" : !(Number(bw) >= 0)){ toast("Baseline needs a weight"); return null; }
-    if(bd && !/^\d{4}-\d{2}-\d{2}$/.test(bd)){ toast("Baseline date looks wrong"); return null; }
-    bl = {set: Number(br) + "x" + r2(Number(bw || 0)), date: bd};
+    bl = {set:setNow, date:bd};
   }
-  return {def:f, assumed: a === "" || kind !== "1" ? null : r2(Number(a)), baseline:bl};
+  return {def:f, assumed: a === "" || kind !== "1" ? null : r2(Number(a)), baseline:bl, setTouched:setTouched};
 }
 /* Re-derive e1 and volume from reps and weight. Used after anything that
    changes how a logged number reads: a shifted sled, or a load type fixed. */
@@ -2902,7 +2914,7 @@ function rederive(id){
 function shiftHistory(id, delta, keepBaseline){
   S.sessions.forEach(function(s){ s.sets.forEach(function(x){ if(x.ex === id) x.weight = r2(x.weight + delta); }); });
   if(keepBaseline) return;
-  var b = S.baselines[id], m = b && b.set && b.set.match(/^(\d+)\s*x\s*([\d.]+)$/i);
+  var b = S.baselines[id], m = b && b.set && b.set.match(/(\d+)\s*x\s*([\d.]+)/i);
   if(m) b.set = m[1] + "x" + r2(Number(m[2]) + delta);
 }
 function shiftPreview(id, delta, keepBaseline){
@@ -2911,12 +2923,12 @@ function shiftPreview(id, delta, keepBaseline){
     if(x.ex === id) lines.push(fmtDate(s.date)+": "+x.reps+" × "+x.weight+" → "+r2(x.weight + delta));
   }); });
   if(keepBaseline) return lines;
-  var b = S.baselines[id], m = b && b.set && b.set.match(/^(\d+)\s*x\s*([\d.]+)$/i);
+  var b = S.baselines[id], m = b && b.set && b.set.match(/(\d+)\s*x\s*([\d.]+)/i);
   if(m) lines.push("Baseline: "+m[1]+" × "+m[2]+" → "+r2(Number(m[2]) + delta));
   return lines;
 }
 function saveMovement(id){
-  var r = mvRead(); if(!r) return;
+  var r = mvRead(id); if(!r) return;
   var f = r.def, isNew = !id;
   if(isNew){
     var nid = "cx_" + Date.now().toString(36), seq = 0;
@@ -2936,8 +2948,7 @@ function saveMovement(id){
   var old = exOf(id), u = usageOf(id);
   /* A baseline typed into the form is already the number you mean, so a
      sled correction leaves it alone; an untouched one shifts with the sets. */
-  var ob = parseBaseline(S.baselines[id]);
-  var blTouched = JSON.stringify(r.baseline) !== JSON.stringify(ob ? {set:ob.reps+"x"+ob.weight, date:ob.date} : null);
+  var blTouched = r.setTouched;
   var delta = r.assumed === null ? 0 : r2((f.base || 0) - r.assumed);
   if(delta && u.draft){ toast("Finish today's session before correcting past sets"); return; }
   var kindChanged = loadKind(old) !== loadKind(f);
@@ -2966,6 +2977,7 @@ function saveMovement(id){
   }
   if(delta) shiftHistory(id, delta, blTouched);
   if(blTouched){ if(r.baseline) S.baselines[id] = r.baseline; else delete S.baselines[id]; }
+  else if(r.baseline) S.baselines[id].date = r.baseline.date;
   if(delta || kindChanged) rederive(id);
   /* An entry already open for this movement holds plates worked out against
      the old sled. Rebuild it rather than log a stale total. */
@@ -3066,7 +3078,7 @@ function sessionsOf(id){
 }
 /** An instance nothing would be lost by removing: no history, no edits. */
 function isSpare(id){
-  return !S.instances[id].edited && !sessionsOf(id);
+  return !S.instances[id].edited && !S.instances[id].renamed && !sessionsOf(id);
 }
 
 function createInstance(templateId){
