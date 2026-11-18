@@ -2851,7 +2851,7 @@ function closeMv(){ mvEdit = null; newForm = false; render(); }
    It seeds the first target and stands as the PR until something beats it. */
 function parseBaseline(b){
   var m = b && b.set && String(b.set).match(/(\d+)\s*x\s*([\d.]+)/i);
-  return m ? {reps:+m[1], weight:+m[2], date:b.date || "", set:m[1]+"x"+m[2]} : null;
+  return m ? {reps:+m[1], weight:+m[2], date:b.date || "", set:(+m[1])+"x"+r2(+m[2])} : null;
 }
 function blLabel(kind){ return kind === "2" ? "Per dumbbell / side" : kind === "bw" ? "Added weight" : "Total weight"; }
 function baselineFields(id){
