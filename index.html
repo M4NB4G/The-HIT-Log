@@ -441,6 +441,11 @@ body.resting{padding-bottom:calc(146px + env(safe-area-inset-bottom))}
 .ph-row{display:flex;align-items:flex-start;gap:10px}
 .ph-row h3{flex:1}
 .mini.ren{flex:0 0 auto;min-height:32px;padding:0 14px;font-size:12px;margin-top:-4px}
+.xnag{background:var(--amber-c);color:var(--amber-on);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.xnag .xt b{display:block;font-size:14px;font-weight:600}
+.xnag .xt span{display:block;font-size:13px;margin-top:3px;line-height:1.45}
+.xnag .mini-row{margin-top:10px}
+.xnag .mini.xgo{background:var(--amber-btn);border-color:var(--amber-btn);color:#fff}
 .frm .hint{font-size:11px;color:var(--txt-3);margin-top:5px;line-height:1.45}
 /* Movement library. The same row as a workout's list, so it reads as the
    same kind of thing, with the editor opening underneath the row tapped. */
@@ -1012,6 +1017,14 @@ function load(){
   /* Your changes to built-in movements, kept apart from LIB so a shipped fix
      to the library still reaches every field you never touched. */
   if(!d.overrides || typeof d.overrides !== "object") d.overrides = {};
+  /* When this phone last wrote an export. Nothing recorded it before, so the
+     clock starts at the first load that knows about it rather than nagging
+     someone who exported yesterday. */
+  if(!d.lastExport){
+    d.lastExport = new Date().toISOString();
+    /* Written now, or every launch before the next save would restart it. */
+    if(HAS_LS){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+  }
   if(!d.sessions) d.sessions = [];
   /* Absent baselines means none, not "seed somebody else's". */
   if(!d.baselines) d.baselines = {};
@@ -1058,6 +1071,12 @@ function load(){
 }
 function save(){ if(HAS_LS){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} } else { mem = S; } }
 let S = load();
+/* Once: bodyweight sets saved before e1 and volume counted bodyweight read 0
+   for both. Re-derive them; PR flags and stored weights are not touched. */
+if(!S.bwDerived){
+  Object.keys(allEx()).forEach(function(id){ if(exOf(id).bw) rederive(id); });
+  S.bwDerived = true; save();
+}
 
 /** Shorthand for the active instance's program object. */
 function prog(){ return S.instances[S.active].program; }
@@ -1199,6 +1218,40 @@ function activeRR(id, setNum){
 }
 function activeRange(id, setNum){ return range({rr: activeRR(id, setNum)}); }
 function e1rm(reps, w, mult){ return Math.round(w * mult * (1 + reps/30)); }
+/* A bodyweight set stores only what was ADDED (0 for plain dips), which is
+   what PRs rank on, so a heavier morning never fakes a record. But e1 and
+   volume describe the work done, and that is you plus the belt. bw is the
+   bodyweight the set was done at, or null if none was ever entered. */
+function setLoad(e, weight, bw){ return e && e.bw ? (Number(bw) || 0) + weight : weight; }
+function derive(e, reps, weight, bw){
+  var w = setLoad(e, weight, bw);
+  return {e1:e1rm(reps, w, e.mult), vol:reps * w * e.mult};
+}
+/* Bodyweight in force for saved session i: its own reading, else the latest
+   one before it. Undefined i means "now" (after the last session). */
+function bwAt(i){
+  var from = i == null ? S.sessions.length - 1 : i;
+  for(var k = from; k >= 0; k--)
+    if(S.sessions[k] && S.sessions[k].bodyweight != null) return S.sessions[k].bodyweight;
+  /* Nothing on or before it: the nearest later reading beats counting you
+     as weightless. */
+  for(var j = from + 1; j < S.sessions.length; j++)
+    if(S.sessions[j].bodyweight != null) return S.sessions[j].bodyweight;
+  return null;
+}
+function draftBW(){ return S.draft && S.draft.bodyweight != null ? S.draft.bodyweight : bwAt(); }
+/* Re-judge every saved set of one movement against the log before it. Run
+   after anything that changes what came first: a baseline or past set
+   corrected, a set deleted, or a sled shift. Same rule as correcting a single
+   set in History: the library's rep range. */
+function reflagPRs(id){
+  var e = exOf(id); if(!e) return;
+  var lo = range(e)[0];
+  S.sessions.forEach(function(s, i){ s.sets.forEach(function(x, j){
+    if(x.ex !== id) return;
+    if(isPR(id, x, {s:i, x:j}, lo)) x.pr = true; else delete x.pr;
+  }); });
+}
 function suffix(e){ return e.mult === 2 ? " ea" : ""; }
 
 /* How a set reads. A bodyweight movement carries no external load unless
@@ -1751,7 +1804,7 @@ function entryFor(id, force){
 
 /* ============================================================ TODAY */
 function viewToday(){
-  if(S.draft){ setAccent(S.draft.workout); return viewSession(S.draft); }
+  if(S.draft){ setAccent(S.draft.workout); return exportNag() + viewSession(S.draft); }
   var auto = nextWorkout();
   var code = pick || auto.code;
   setAccent(code);
@@ -1781,7 +1834,7 @@ function viewToday(){
   else if(gs === "ready"){ due = "Rested "+gap+"d &middot; inside the "+winText(sw)+" window"; dueCls = "ready"; }
   else { due = "Rested "+gap+"d &middot; past the "+winText(sw)+" window"; dueCls = "late"; }
 
-  return '<div class="seg-h">Today I am doing</div>'
+  return exportNag() + '<div class="seg-h">Today I am doing</div>'
     + '<div class="seg">' + rotation().map(function(c){
         return '<button aria-pressed="'+(c === code)+'" onclick="pick=\''+c+'\';render()">'
              + '<span class="l">'+c+'</span><span class="f">'+esc(focusOf(c))+'</span></button>'; }).join("") + '</div>'
@@ -2339,6 +2392,7 @@ function viewData(){
     + '<div class="panel"><h3>Storage</h3><p>'
     + (HAS_LS
         ? 'Saved on this device. '+S.sessions.length+' session'+(S.sessions.length === 1 ? '' : 's')+', '+nSets+' sets. Nothing leaves your phone.'
+          + (exportAge() !== null ? ' Last export '+(exportAge() === 0 ? 'today' : exportAge()+' day'+(exportAge() === 1 ? '' : 's')+' ago')+'.' : '')
         : '<strong style="color:var(--amber-on)">Preview mode - nothing persists.</strong> Deploy this file to a real URL and localStorage takes over.')
     + '</p>'
     /* One install block, three cases. iOS gets written instructions because
@@ -2519,8 +2573,9 @@ function commit(id){
   var role = st.role || "top";
   var submax = st.scheme === "submax";
   var extra = isExtended(ew) ? Math.max(0, Number(st.extra) || 0) : 0;
+  var dv = derive(e, reps, weight, draftBW());
   var set = {ex:id, reps:reps, weight:weight, note:st.note || "",
-             e1:e1rm(reps, weight, e.mult), vol:reps*weight*e.mult, t:new Date().toISOString(),
+             e1:dv.e1, vol:dv.vol, t:new Date().toISOString(),
              role:role, setNum:st.setNum || 0};
   /* A submaximal set records the scheme instead of an ending: there was no
      failure to describe, and the scheme is what keeps it out of PRs. */
@@ -2670,7 +2725,7 @@ function saveHistSet(){
   if(e.bw){ if(!(weight > 0)) weight = 0; }
   else if(!weight || weight <= 0) return toast("Enter a weight first");
   x.reps = reps; x.weight = weight; x.note = histEntry.note || "";
-  x.e1 = e1rm(reps, weight, e.mult); x.vol = reps * weight * e.mult;
+  var dv = derive(e, reps, weight, bwAt(histEdit.s)); x.e1 = dv.e1; x.vol = dv.vol;
   if(x.scheme !== "submax"){
     x.endedWith = histEntry.endedWith;
     var extra = isExtended(x.endedWith) ? Math.max(0, Number(histEntry.extra) || 0) : 0;
@@ -2679,7 +2734,9 @@ function saveHistSet(){
   /* Re-judged against the log as it stood immediately before this set, and
      against the library range: the prescription that produced it is not
      recorded on the set, and today's draft is a different workout. */
-  if(isPR(x.ex, x, {s:histEdit.s, x:histEdit.x}, range(e)[0])) x.pr = true; else delete x.pr;
+  /* Every later set of this movement was judged against this one, so the
+     whole run is re-judged, not just the set corrected. */
+  reflagPRs(x.ex);
   histOpen = histEdit.s; histEdit = null; histEntry = null;
   save(); toast("Set updated"); render();
 }
@@ -2690,6 +2747,7 @@ function deleteHistSet(si, xi){
   if(!confirm("Delete " + (e ? e.n : x.ex) + " " + setPlain(e, x.reps, x.weight)
     + " from " + fmtDate(sess.date) + "?\n\nThis cannot be undone.")) return;
   sess.sets.splice(xi, 1);
+  reflagPRs(x.ex);
   histEdit = null; histEntry = null;
   /* A session with nothing left in it is not a rest day that happened - it
      would still count against the rotation and the gap between workouts. */
@@ -2905,9 +2963,9 @@ function mvRead(id){
    changes how a logged number reads: a shifted sled, or a load type fixed. */
 function rederive(id){
   var e = exOf(id); if(!e) return;
-  var fix = function(x){ if(x.ex === id){ x.e1 = e1rm(x.reps, x.weight, e.mult); x.vol = x.reps * x.weight * e.mult; } };
-  S.sessions.forEach(function(s){ s.sets.forEach(fix); });
-  if(S.draft) S.draft.sets.forEach(fix);
+  var fix = function(bw){ return function(x){ if(x.ex === id){ var dv = derive(e, x.reps, x.weight, bw); x.e1 = dv.e1; x.vol = dv.vol; } }; };
+  S.sessions.forEach(function(s, i){ s.sets.forEach(fix(bwAt(i))); });
+  if(S.draft) S.draft.sets.forEach(fix(draftBW()));
 }
 /* Correct every saved total for a sled that was assumed wrong. The draft is
    left out: those sets were logged today, against today's numbers. */
@@ -2979,6 +3037,7 @@ function saveMovement(id){
   if(blTouched){ if(r.baseline) S.baselines[id] = r.baseline; else delete S.baselines[id]; }
   else if(r.baseline) S.baselines[id].date = r.baseline.date;
   if(delta || kindChanged) rederive(id);
+  if(delta || kindChanged || blTouched) reflagPRs(id);
   /* An entry already open for this movement holds plates worked out against
      the old sled. Rebuild it rather than log a stale total. */
   if(entry[id] && !editingDraft) delete entry[id];
@@ -3003,7 +3062,7 @@ function restoreMovement(id){
   if(!confirm(msg)) return;
   var kindChanged = loadKind(exOf(id)) !== loadKind(LIB[id]);
   delete S.overrides[id];
-  if(kindChanged) rederive(id);
+  if(kindChanged){ rederive(id); reflagPRs(id); }
   delete entry[id];
   mvEdit = null; save(); toast("Restored"); render();
 }
@@ -3151,6 +3210,34 @@ function exportJSON(){
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "hitlog_"+today()+".json"; a.click();
   URL.revokeObjectURL(a.href);
+  S.lastExport = new Date().toISOString(); delete S.exportSnooze;
+  save(); render();
+}
+/* The log lives in this browser and nowhere else, so a lost or wiped phone
+   loses all of it. After 30 days without an export, Today says so. "Later"
+   puts it off for a week. */
+const EXPORT_EVERY = 30, EXPORT_SNOOZE = 7;
+function exportAge(){
+  var t = Date.parse(S.lastExport || "");
+  return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
+}
+function exportDue(){
+  if(!S.sessions.length) return false;
+  var age = exportAge();
+  if(age === null || age < EXPORT_EVERY) return false;
+  return !(S.exportSnooze && today() < S.exportSnooze);
+}
+function snoozeExport(){
+  var d = new Date(); d.setDate(d.getDate() + EXPORT_SNOOZE);
+  S.exportSnooze = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  save(); toast("Reminding you in "+EXPORT_SNOOZE+" days"); render();
+}
+function exportNag(){
+  if(!exportDue()) return '';
+  return '<div class="xnag"><div class="xt"><b>Back up your log</b>'
+    + '<span>Last export '+exportAge()+' days ago. Everything lives only on this phone.</span></div>'
+    + '<div class="mini-row"><button class="mini xgo" onclick="exportJSON()">Export JSON</button>'
+    + '<button class="mini" onclick="snoozeExport()">Later</button></div></div>';
 }
 function importJSON(input){
   var f = input.files[0]; if(!f) return;
@@ -3172,7 +3259,9 @@ function importJSON(input){
            baselines:d.baselines || S.baselines || {},
            /* A device setting, not log data: an export that predates it must
               not switch off a timer already set up on this phone. */
-           timer:d.timer || S.timer || REST_DEFAULT()};
+           timer:d.timer || S.timer || REST_DEFAULT(),
+           /* The file just loaded is itself a backup of everything now here. */
+           lastExport:new Date().toISOString()};
       save(); toast("Imported "+d.sessions.length+" sessions"); render();
     }catch(e){ toast("That is not a HIT Log export"); }
     input.value = "";
