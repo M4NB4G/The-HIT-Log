@@ -438,6 +438,15 @@ body.resting{padding-bottom:calc(146px + env(safe-area-inset-bottom))}
 .frm input,.frm select{width:100%;min-height:46px;background:var(--surface);border:1px solid var(--outline);
   border-radius:10px;padding:0 12px;color:var(--txt);font-size:15px}
 .frm input:focus,.frm select:focus{outline:none;border-color:var(--blue);border-width:2px}
+.frm .hint{font-size:11px;color:var(--txt-3);margin-top:5px;line-height:1.45}
+/* Movement library. The same row as a workout's list, so it reads as the
+   same kind of thing, with the editor opening underneath the row tapped. */
+.mvlist{margin-top:6px}
+.mvlist .erow .tag{font-size:10px;font-weight:500;color:var(--blue);margin-left:6px}
+.mv-ed{background:var(--surface-2);border-radius:14px;padding:12px;margin:0 0 10px}
+.mv-ed .frm{margin-top:0}
+.mv-ed .mini-row{flex-wrap:wrap}
+.mvgrp{font-size:11px;font-weight:500;color:var(--txt-3);letter-spacing:.04em;text-transform:uppercase;margin:14px 0 2px}
 
 .prtab{width:100%;border-collapse:collapse;font-size:13px}
 .prtab th{font-size:11px;font-weight:500;color:var(--txt-3);text-align:left;padding:0 0 9px}
@@ -927,7 +936,7 @@ function blank(){
      session a fresh install logged back by a day. */
   return {schema:3, dateMigrated:true,
           instances:{}, active:null,
-          sessions:[], draft:null, custom:{}, baselines:{},
+          sessions:[], draft:null, custom:{}, overrides:{}, baselines:{},
           timer:REST_DEFAULT()};
 }
 /** False only on a fresh install, before a routine has been chosen. */
@@ -997,6 +1006,9 @@ function load(){
   }
   if(!d.instances) d = migrateV2(d);
   if(!d.custom) d.custom = {};
+  /* Your changes to built-in movements, kept apart from LIB so a shipped fix
+     to the library still reaches every field you never touched. */
+  if(!d.overrides || typeof d.overrides !== "object") d.overrides = {};
   if(!d.sessions) d.sessions = [];
   /* Absent baselines means none, not "seed somebody else's". */
   if(!d.baselines) d.baselines = {};
@@ -1153,9 +1165,15 @@ function today(){
 function daysBetween(a,b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
 function fmtDate(d){ var p = d.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]).toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
-function exOf(id){ return LIB[id] || S.custom[id] || null; }
+function exOf(id){
+  if(LIB[id]){
+    var o = S.overrides && S.overrides[id];
+    return o ? Object.assign({}, LIB[id], o) : LIB[id];
+  }
+  return S.custom[id] || null;
+}
 function exName(id){ var e = exOf(id); return e ? e.n : id; }
-function allEx(){ var o = {}; for(var k in LIB) o[k] = LIB[k]; for(var j in S.custom) o[j] = S.custom[j]; return o; }
+function allEx(){ var o = {}; for(var k in LIB) o[k] = exOf(k); for(var j in S.custom) o[j] = S.custom[j]; return o; }
 function range(e){ var p = String(e.rr).split("-").map(Number); return [p[0]||1, p[1]||p[0]||1]; }
 
 /* The rep range actually in force for an exercise right now.
@@ -1191,6 +1209,22 @@ function setText(e, reps, weight, extra){
 function setPlain(e, reps, weight){
   if(e && e.bw) return Number(weight) > 0 ? reps + " \u00D7 +" + weight : reps + " reps";
   return reps + " \u00D7 " + weight + (e && e.mult === 2 ? " ea" : "");
+}
+/* What the weight field shows: plates on a machine with an empty weight,
+   the load itself everywhere else. */
+function plateField(e, st){
+  var b = baseOf(e);
+  if(!b) return st.weight;
+  if(st.plates != null) return st.plates;
+  return st.weight === "" || st.weight == null ? "" : r2(Number(st.weight) - b);
+}
+/* The line under the field. With a sled it reads out the sum, so the total
+   that gets logged is never a surprise. */
+function weightUnit(e, total){
+  var b = baseOf(e);
+  if(!b) return esc(e.unit);
+  var t = Number(total);
+  return '+'+b+' empty'+(total !== "" && total != null && t > 0 ? ' = <b>'+r2(t)+'</b> total' : '');
 }
 /* Which shelf a template sits on in the picker. Grouped by set structure
    because that is the decision you are actually making when you choose one,
@@ -1256,11 +1290,20 @@ function lastKnown(id){
    left exactly as typed, because some stacks really do read 209 or 231. */
 const GRID = 5;
 function snapWeight(w){ return Math.round(w / GRID) * GRID; }
+/* Empty weight: the sled or bar a machine weighs with nothing loaded. Every
+   logged weight is the TOTAL, sled included, but what you actually put on is
+   plates, so the plates are what has to land on the grid. Snapping the total
+   instead would propose a 12 lb Smith bar plus 243 lb of plates. Dumbbells
+   and bodyweight movements have no sled, whatever the field says. */
+function baseOf(e){ return e && !e.bw && e.mult !== 2 ? (Number(e.base) || 0) : 0; }
+function snapFor(w, e){ var b = baseOf(e); return b + snapWeight(w - b); }
+function r2(n){ return Math.round(n * 100) / 100; }
 /* Stepping off an odd load moves onto the grid instead of carrying the offset
    along: one press up from 68 is 70, not 73. Once on the grid, a press moves
    a full machine step. */
-function stepWeight(cur, delta){
-  if(cur % GRID !== 0) return delta > 0 ? Math.ceil(cur / GRID) * GRID : Math.floor(cur / GRID) * GRID;
+function stepWeight(cur, delta, base){
+  var b = base || 0, p = cur - b;
+  if(p % GRID !== 0) return b + (delta > 0 ? Math.ceil(p / GRID) * GRID : Math.floor(p / GRID) * GRID);
   return cur + delta;
 }
 /* How far a load moves when a jump is earned, as a percentage.
@@ -1280,7 +1323,7 @@ function activePct(id){
 function bumpWeight(w, e, pct){
   var p = (pct == null) ? (e.pct == null ? 5 : e.pct) : pct;
   var raw = w * p / 100;
-  return snapWeight(w + Math.max(e.step, Math.round(raw / e.step) * e.step));
+  return snapFor(w + Math.max(e.step, Math.round(raw / e.step) * e.step), e);
 }
 /** How the set ended.
     Two different facts used to be crammed into this one enum: whether the set
@@ -1645,6 +1688,9 @@ function setTimerSecs(v){
 
 /* ---------------- ui state ---------------- */
 var tab = "today", open_ = null, pick = null, adding = false, editWO = null, addTo = null, newForm = false;
+/* Movement editor: null, "new", or the id being edited. libOpen shows the
+   built-in list, which is long enough to hide until asked for. */
+var mvEdit = null, libOpen = false;
 /* Program editor: the slot expanded inside editWO, and - when the picker is
    choosing a movement for a slot that takes turns rather than adding a new
    slot - which slot and which member (j, -1 to add one). */
@@ -1683,7 +1729,7 @@ function entryFor(id, force){
         var topLogged = d.sets.filter(function(s){ return s.ex === id && (!s.role || s.role === "top"); })[0];
         /* loadFactor is usually a back-off (Yates 0.9) but may be a ramp:
            the break-in's second set is 1.1, deliberately heavier. */
-        if(topLogged && setDef.loadFactor) weight = snapWeight(topLogged.weight * setDef.loadFactor);
+        if(topLogged && setDef.loadFactor) weight = snapFor(topLogged.weight * setDef.loadFactor, exOf(id));
         else if(topLogged) weight = topLogged.weight;
         /* A follow set has no independent target - it opens at the bottom of
            its own range and you take it as far as the load allows. */
@@ -1947,15 +1993,15 @@ function card(d, id, i){
           + ' &middot; not to failure</div>')
     + '<div class="cap '+capCls+'">'+cap+'</div>'
     + '<div class="steppers">'
-    + '<div class="st"><div class="lbl">Weight</div><div class="ctl">'
+    + '<div class="st"><div class="lbl">'+(baseOf(e) ? 'Plates' : 'Weight')+'</div><div class="ctl">'
     /* Always one 5 lb plate, whatever the machine's own increment is. The
        step on the exercise is what the NEXT session moves by once a jump is
        earned; these buttons are for saying what was actually lifted, and a
        stack reading 185 cannot be entered in tens. */
     + '<button onclick="bump(\''+id+'\',\'weight\',-'+GRID+')" aria-label="less weight">&minus;</button>'
-    + '<input type="text" inputmode="decimal" value="'+st.weight+'" placeholder="&mdash;" oninput="setv(\''+id+'\',\'weight\',this.value)">'
+    + '<input type="text" inputmode="decimal" value="'+plateField(e, st)+'" placeholder="&mdash;" oninput="setv(\''+id+'\',\'weight\',this.value)">'
     + '<button onclick="bump(\''+id+'\',\'weight\','+GRID+')" aria-label="more weight">+</button>'
-    + '</div><div class="unit">'+esc(e.unit)+'</div></div>'
+    + '</div><div class="unit">'+weightUnit(e, st.weight)+'</div></div>'
     + '<div class="st"><div class="lbl">Reps</div><div class="ctl">'
     + '<button onclick="bump(\''+id+'\',\'reps\',-1)" aria-label="fewer reps">&minus;</button>'
     + '<input type="text" inputmode="numeric" value="'+st.reps+'" oninput="setv(\''+id+'\',\'reps\',this.value)">'
@@ -2048,11 +2094,11 @@ function histSetForm(si, xi, x){
     + '<div class="hn">'+esc(e.n)+'</div>'
     + '<div class="hd">was '+setPlain(e, x.reps, x.weight)+'</div>'
     + '<div class="steppers">'
-    + '<div class="st"><div class="lbl">Weight</div><div class="ctl">'
+    + '<div class="st"><div class="lbl">'+(baseOf(e) ? 'Total' : 'Weight')+'</div><div class="ctl">'
     + '<button onclick="bumpHist(\'weight\',-'+GRID+')" aria-label="less weight">&minus;</button>'
     + '<input type="text" inputmode="decimal" value="'+st.weight+'" placeholder="&mdash;" oninput="setHist(\'weight\',this.value)">'
     + '<button onclick="bumpHist(\'weight\','+GRID+')" aria-label="more weight">+</button>'
-    + '</div><div class="unit">'+esc(e.unit)+'</div></div>'
+    + '</div><div class="unit">'+(baseOf(e) ? 'incl. '+baseOf(e)+' empty' : esc(e.unit))+'</div></div>'
     + '<div class="st"><div class="lbl">Reps</div><div class="ctl">'
     + '<button onclick="bumpHist(\'reps\',-1)" aria-label="fewer reps">&minus;</button>'
     + '<input type="text" inputmode="numeric" value="'+st.reps+'" oninput="setHist(\'reps\',this.value)">'
@@ -2281,6 +2327,7 @@ function viewData(){
     + '<p>Tap a workout to add, remove or reorder movements. Tap a movement to have it take turns with another, or to change which one is up next.</p>'
     + progHtml
     + '<button class="btn-o" onclick="resetProgram()">Reset to source template</button></div>'
+    + movementsPanel()
     + timerPanel
     + '<div class="panel"><h3>Storage</h3><p>'
     + (HAS_LS
@@ -2351,20 +2398,12 @@ function pickerFor(c){
     : 'Replace '+esc(exName(slotIds(target)[alt.j]))+' with&hellip;';
   var choose = function(x){ return alt ? "setAlt('"+c+"',"+alt.i+","+alt.j+",'"+x+"')" : "addEx('"+c+"','"+x+"')"; };
   if(newForm){
-    return '<div class="picker"><div class="ph">New exercise</div><div class="frm">'
-      + '<div class="full"><label>Name</label><input id="nf_n" placeholder="e.g. Machine Chest Press"></div>'
-      + '<div><label>Muscle group</label><input id="nf_g" placeholder="Chest"></div>'
-      + '<div><label>Rep range</label><input id="nf_r" placeholder="6-10"></div>'
-      + '<div><label>Load type</label><select id="nf_m"><option value="1">Single load</option><option value="2">Per dumbbell / side</option></select></div>'
-      + '<div><label>Weight step</label><input id="nf_s" type="number" inputmode="decimal" value="5"></div>'
-      + '<div><label>Bump %</label><input id="nf_p" type="number" inputmode="decimal" value="5"></div></div>'
-      + '<div class="mini-row"><button class="mini" onclick="createEx(\''+c+'\')">Save exercise</button>'
-      + '<button class="mini warn" onclick="newForm=false;render()">Cancel</button></div></div>';
+    return '<div class="picker"><div class="ph">New exercise for workout '+c+'</div>'+mvForm(null)+'</div>';
   }
   return '<div class="picker"><div class="ph">'+head+'</div>'
     + pool.map(function(x){ return '<button class="opt" onclick="'+choose(x)+'">'+esc(A[x].n)
         + '<small>'+esc(A[x].g)+' &middot; '+esc(A[x].rr)+' reps</small></button>'; }).join("")
-    + '<div class="mini-row"><button class="mini" onclick="newForm=true;render()">+ New exercise</button>'
+    + '<div class="mini-row"><button class="mini" onclick="newForm=true;mvEdit=null;render()">+ New exercise</button>'
     + '<button class="mini warn" onclick="closePicker()">Cancel</button></div></div>';
 }
 function empty(b,m){ return '<div class="empty"><div class="big">'+b+'</div><p>'+m+'</p></div>'; }
@@ -2393,6 +2432,14 @@ function setv(id,k,v){
      trailing decimal point, so 182.5 could never be entered: the "." vanished
      the moment it was typed. Everything downstream already coerces. */
   st[k] = (k === "note" || k === "endedWith") ? v : numStr(v);
+  /* On a machine with an empty weight the field holds plates. The typed
+     string is kept as typed (so "45." survives) and the total, which is what
+     everything downstream reads, is derived from it. */
+  var b = baseOf(exOf(id));
+  if(k === "weight" && b){
+    st.plates = st.weight;
+    st.weight = st.plates === "" ? "" : String(r2(Number(st.plates) + b));
+  }
   /* Switching away from a past-failure technique drops any count entered for
      it, so a stale number cannot ride along on a set logged as clean. */
   if(k === "endedWith" && !isExtended(v)) st.extra = 0;
@@ -2401,7 +2448,11 @@ function setv(id,k,v){
 }
 function bump(id,k,delta){
   var st = entryFor(id), cur = Number(st[k]) || 0;
-  if(k === "weight") st.weight = Math.max(0, stepWeight(cur, delta));
+  if(k === "weight"){
+    var b = baseOf(exOf(id));
+    st.weight = Math.max(b, stepWeight(cur || b, delta, b));
+    delete st.plates;
+  }
   else st[k] = Math.max(k === "reps" ? 1 : 0, Math.round((cur + delta) * 100) / 100);
   render();
 }
@@ -2595,7 +2646,10 @@ function setHist(k, v){
 function bumpHist(k, delta){
   if(!histEntry) return;
   var cur = Number(histEntry[k]) || 0;
-  if(k === "weight") histEntry.weight = Math.max(0, stepWeight(cur, delta));
+  if(k === "weight"){
+    var he = histEdit && S.sessions[histEdit.s] && S.sessions[histEdit.s].sets[histEdit.x];
+    histEntry.weight = Math.max(0, stepWeight(cur, delta, he ? baseOf(exOf(he.ex)) : 0));
+  }
   else histEntry[k] = Math.max(k === "reps" ? 1 : 0, cur + delta);
   render();
 }
@@ -2663,10 +2717,10 @@ function removeEx(c,i){
   markEdited(); addTo = null; altPick = null; save(); toast("Removed"); render();
 }
 /* ---- editor state ---- */
-function openWO(c){ editWO = c; editSlot = null; addTo = null; altPick = null; newForm = false; render(); }
+function openWO(c){ editWO = c; editSlot = null; addTo = null; altPick = null; newForm = false; mvEdit = null; render(); }
 function openSlot(i){ editSlot = editSlot === i ? null : i; addTo = null; altPick = null; newForm = false; render(); }
-function openAdd(c){ addTo = c; altPick = null; newForm = false; render(); }
-function pickAlt(c, i, j){ addTo = c; altPick = {i:i, j:j}; newForm = false; render(); }
+function openAdd(c){ addTo = c; altPick = null; newForm = false; mvEdit = null; render(); }
+function pickAlt(c, i, j){ addTo = c; altPick = {i:i, j:j}; newForm = false; mvEdit = null; render(); }
 function closePicker(){ addTo = null; altPick = null; newForm = false; render(); }
 /* A picker closing inside a slot editor makes the page shorter, and the
    browser keeps its scroll offset, which lands you somewhere below the row you
@@ -2712,17 +2766,227 @@ function altNext(c, i, id){
   markEdited(); save(); toast(exName(id)+" next time"); render();
 }
 function addEx(c,id){ prog()[c].list.push(id); markEdited(); addTo = null; save(); toast("Added"); render(); }
-function createEx(c){
-  var g = function(id){ var el = document.getElementById(id); return el ? (el.value || "").trim() : ""; };
-  var n = g("nf_n"); if(!n) return toast("Name it first");
-  var rr = g("nf_r") || "6-12";
-  if(!/^\d+\s*-\s*\d+$/.test(rr)) return toast("Rep range looks like 6-12");
-  var mult = Number(document.getElementById("nf_m").value) || 1;
-  var id = "cx_" + Date.now().toString(36);
-  S.custom[id] = {n:n, g:g("nf_g") || "Other", rr:rr.replace(/\s/g,""), mult:mult,
-    step:Number(g("nf_s")) || 5, pct:Number(g("nf_p")) || 5, unit: mult === 2 ? "per dumbbell" : "load", baseSet:"", baseOn:""};
-  if(altPick && addTo === c) return setAlt(c, altPick.i, altPick.j, id);
-  prog()[c].list.push(id); markEdited(); newForm = false; addTo = null; save(); toast(n + " added"); render();
+/* ================= movement editor =================
+   One form for creating a movement and for fixing one later, whether you made
+   it or it ships with the app. Built-ins are never written to: your changes
+   sit in S.overrides and are laid over LIB by exOf(), so "Restore default"
+   is just forgetting them. */
+function muscleGroups(){
+  var g = {};
+  Object.keys(LIB).forEach(function(k){ g[LIB[k].g] = 1; });
+  return Object.keys(g).sort();
+}
+/* Every set and baseline a movement has, saved or in today's draft. The count
+   decides what an edit is allowed to do without asking. */
+function usageOf(id){
+  var sets = 0, draft = 0;
+  S.sessions.forEach(function(s){ s.sets.forEach(function(x){ if(x.ex === id) sets++; }); });
+  if(S.draft) S.draft.sets.forEach(function(x){ if(x.ex === id) draft++; });
+  var where = [];
+  for(var ik in S.instances){
+    var p = S.instances[ik].program || {};
+    for(var c in p) if(p[c].list.some(function(it){ return slotIds(it).indexOf(id) > -1; }))
+      where.push((Object.keys(S.instances).length > 1 ? S.instances[ik].name+' ' : '')+c);
+  }
+  var b = S.baselines[id];
+  return {sets:sets, draft:draft, where:where, baseline: b && b.set ? b.set : ""};
+}
+function loadKind(e){ return e.bw ? "bw" : e.mult === 2 ? "2" : "1"; }
+function mvForm(id){
+  var e = id ? exOf(id) : {n:"", g:"", rr:"", mult:1, step:5, pct:5, unit:"", base:0};
+  var groups = muscleGroups(), custom = id && !LIB[id];
+  if(e.g && groups.indexOf(e.g) < 0) groups.push(e.g);
+  var kind = loadKind(e), u = id ? usageOf(id) : null;
+  var hasHist = u && (u.sets || u.baseline);
+  var opt = function(v, l, on){ return '<option value="'+esc(v)+'"'+(on ? ' selected' : '')+'>'+esc(l)+'</option>'; };
+  return '<div class="frm">'
+    + '<div class="full"><label>Name</label><input id="mv_n" value="'+esc(e.n)+'" placeholder="e.g. Machine Chest Press"></div>'
+    + '<div><label>Muscle group</label><select id="mv_g" onchange="document.getElementById(\'mv_gw\').style.display=this.value===\'__new\'?\'\':\'none\'">'
+    + (e.g ? '' : opt("", "Choose…", true))
+    + groups.map(function(g){ return opt(g, g, g === e.g); }).join("")
+    + opt("__new", "New group…", false) + '</select></div>'
+    + '<div><label>Rep range</label><input id="mv_r" value="'+esc(e.rr)+'" placeholder="6-10"></div>'
+    + '<div class="full" id="mv_gw" style="display:none"><label>New group name</label><input id="mv_g2" placeholder="e.g. Forearms"></div>'
+    + '<div><label>Load type</label><select id="mv_m">'
+    + opt("1", "Single load", kind === "1") + opt("2", "Per dumbbell / side", kind === "2")
+    + opt("bw", "Bodyweight (+ added)", kind === "bw") + '</select></div>'
+    + '<div><label>Unit label</label><input id="mv_u" value="'+esc(e.unit)+'" placeholder="stack, total sled…"></div>'
+    + '<div><label>Weight step</label><input id="mv_s" type="number" inputmode="decimal" value="'+esc(e.step)+'"></div>'
+    + '<div><label>Bump %</label><input id="mv_p" type="number" inputmode="decimal" value="'+esc(e.pct == null ? 5 : e.pct)+'"></div>'
+    + '<div class="full"><label>Empty weight (sled or bar), lb</label>'
+    + '<input id="mv_b" type="number" inputmode="decimal" value="'+(e.base ? esc(e.base) : '')+'" placeholder="0">'
+    + '<div class="hint">What it weighs with nothing loaded. You enter plates and the app adds this, so every logged weight is the total. Ignored for dumbbells and bodyweight.</div></div>'
+    + (hasHist
+      ? '<div class="full"><label>Past sets assumed an empty weight of</label>'
+        + '<input id="mv_a" type="number" inputmode="decimal" placeholder="leave blank to keep history as it is">'
+        + '<div class="hint">Only if earlier totals were worked out with a different sled or bar weight. Every saved set'
+        + (u.baseline ? ' and the baseline' : '')+' shifts by the difference; you see the list before anything changes.</div></div>'
+      : '')
+    + '</div>'
+    + (u && (u.sets || u.draft || u.where.length)
+      ? '<div class="hint" style="margin-top:10px;font-size:12px;color:var(--txt-3)">'
+        + (u.sets ? u.sets+' logged set'+(u.sets === 1 ? '' : 's') : 'No logged sets')
+        + (u.where.length ? ' &middot; in '+esc(u.where.join(", ")) : ' &middot; not in a workout')+'</div>'
+      : '')
+    + '<div class="mini-row"><button class="mini" onclick="saveMovement(\''+(id || '')+'\')">'+(id ? 'Save changes' : 'Save exercise')+'</button>'
+    + '<button class="mini" onclick="closeMv()">Cancel</button>'
+    + (custom ? '<button class="mini warn" onclick="deleteMovement(\''+id+'\')">Delete</button>' : '')
+    + (id && LIB[id] && S.overrides[id] ? '<button class="mini warn" onclick="restoreMovement(\''+id+'\')">Restore default</button>' : '')
+    + '</div>';
+}
+function openMv(id){ mvEdit = mvEdit === id ? null : id; newForm = false; addTo = null; altPick = null; render(); }
+function closeMv(){ mvEdit = null; newForm = false; render(); }
+/* Read and check the form. Null (after a toast) when something is off. */
+function mvRead(){
+  var v = function(k){ var el = document.getElementById(k); return el ? String(el.value || "").trim() : ""; };
+  var n = v("mv_n"); if(!n){ toast("Name it first"); return null; }
+  var g = v("mv_g") === "__new" ? v("mv_g2") : v("mv_g");
+  if(!g){ toast("Pick a muscle group"); return null; }
+  var rr = (v("mv_r") || "6-12").replace(/\s/g, "");
+  if(!/^\d+-\d+$/.test(rr)){ toast("Rep range looks like 6-12"); return null; }
+  var p = rr.split("-").map(Number);
+  if(!(p[0] >= 1) || p[1] < p[0]){ toast("Rep range runs low to high, like 6-12"); return null; }
+  var step = Number(v("mv_s")), pct = Number(v("mv_p")), base = Number(v("mv_b") || 0);
+  if(!(step > 0)){ toast("Weight step must be more than 0"); return null; }
+  if(!(pct >= 0)){ toast("Bump % cannot be negative"); return null; }
+  if(!(base >= 0)){ toast("Empty weight cannot be negative"); return null; }
+  var kind = v("mv_m"), a = v("mv_a");
+  if(a !== "" && !(Number(a) >= 0)){ toast("Past empty weight cannot be negative"); return null; }
+  var f = {n:n, g:g, rr:rr, mult: kind === "2" ? 2 : 1, step:step, pct:pct,
+           unit: v("mv_u") || (kind === "2" ? "per dumbbell" : kind === "bw" ? "lb" : "load")};
+  if(kind === "bw") f.bw = true;
+  if(base > 0 && kind === "1") f.base = r2(base);
+  return {def:f, assumed: a === "" ? null : r2(Number(a))};
+}
+/* Re-derive e1 and volume from reps and weight. Used after anything that
+   changes how a logged number reads: a shifted sled, or a load type fixed. */
+function rederive(id){
+  var e = exOf(id); if(!e) return;
+  var fix = function(x){ if(x.ex === id){ x.e1 = e1rm(x.reps, x.weight, e.mult); x.vol = x.reps * x.weight * e.mult; } };
+  S.sessions.forEach(function(s){ s.sets.forEach(fix); });
+  if(S.draft) S.draft.sets.forEach(fix);
+}
+/* Correct every saved total for a sled that was assumed wrong. The draft is
+   left out: those sets were logged today, against today's numbers. */
+function shiftHistory(id, delta){
+  S.sessions.forEach(function(s){ s.sets.forEach(function(x){ if(x.ex === id) x.weight = r2(x.weight + delta); }); });
+  var b = S.baselines[id], m = b && b.set && b.set.match(/^(\d+)\s*x\s*([\d.]+)$/i);
+  if(m) b.set = m[1] + "x" + r2(Number(m[2]) + delta);
+}
+function shiftPreview(id, delta){
+  var lines = [];
+  S.sessions.forEach(function(s){ s.sets.forEach(function(x){
+    if(x.ex === id) lines.push(fmtDate(s.date)+": "+x.reps+" × "+x.weight+" → "+r2(x.weight + delta));
+  }); });
+  var b = S.baselines[id], m = b && b.set && b.set.match(/^(\d+)\s*x\s*([\d.]+)$/i);
+  if(m) lines.push("Baseline: "+m[1]+" × "+m[2]+" → "+r2(Number(m[2]) + delta));
+  return lines;
+}
+function saveMovement(id){
+  var r = mvRead(); if(!r) return;
+  var f = r.def, isNew = !id;
+  if(isNew){
+    var nid = "cx_" + Date.now().toString(36), seq = 0;
+    while(S.custom[nid] || LIB[nid]) nid = "cx_" + Date.now().toString(36) + (++seq);
+    S.custom[nid] = Object.assign(f, {baseSet:"", baseOn:""});
+    /* Made from a workout's picker: it goes straight into that workout, or
+       into the slot it was chosen for. Made from the library: nowhere yet. */
+    if(newForm && addTo){
+      var c = addTo;
+      if(altPick) return setAlt(c, altPick.i, altPick.j, nid);
+      prog()[c].list.push(nid); markEdited();
+    }
+    newForm = false; addTo = null; mvEdit = null;
+    save(); toast(f.n + " added"); render(); return;
+  }
+  var old = exOf(id), u = usageOf(id);
+  var delta = r.assumed === null ? 0 : r2((f.base || 0) - r.assumed);
+  if(delta && u.draft){ toast("Finish today's session before correcting past sets"); return; }
+  var kindChanged = loadKind(old) !== loadKind(f);
+  if(kindChanged && (u.sets || u.draft)
+     && !confirm("Change "+old.n+" from "+({"1":"single load","2":"per dumbbell / side","bw":"bodyweight"})[loadKind(old)]
+       +" to "+({"1":"single load","2":"per dumbbell / side","bw":"bodyweight"})[loadKind(f)]+"?\n\n"
+       +(u.sets + u.draft)+" logged set(s) keep their numbers but will be read the new way, so e1 and volume are recalculated.")) return;
+  if(delta){
+    var lines = shiftPreview(id, delta);
+    if(!lines.length) delta = 0;
+    else if(!confirm("Shift "+lines.length+" saved weight"+(lines.length === 1 ? "" : "s")+" by "+(delta > 0 ? "+" : "")+delta+" lb?\n\n"
+       + lines.join("\n"))) return;
+  }
+  if(LIB[id]){
+    /* Keep only what differs from the shipped entry, so a later library fix
+       to a field you never touched still comes through. */
+    var lib = LIB[id], o = {};
+    ["n","g","rr","mult","step","unit"].forEach(function(k){ if(f[k] !== lib[k]) o[k] = f[k]; });
+    if(f.pct !== (lib.pct == null ? 5 : lib.pct)) o.pct = f.pct;
+    if(!!f.bw !== !!lib.bw) o.bw = !!f.bw;
+    if((f.base || 0) !== (lib.base || 0)) o.base = f.base || 0;
+    if(Object.keys(o).length) S.overrides[id] = o; else delete S.overrides[id];
+  } else {
+    var keep = S.custom[id];
+    S.custom[id] = Object.assign(f, {baseSet:keep.baseSet || "", baseOn:keep.baseOn || ""});
+  }
+  if(delta) shiftHistory(id, delta);
+  if(delta || kindChanged) rederive(id);
+  /* An entry already open for this movement holds plates worked out against
+     the old sled. Rebuild it rather than log a stale total. */
+  if(entry[id] && !editingDraft) delete entry[id];
+  mvEdit = null; save();
+  toast(delta ? "Saved · history shifted "+(delta > 0 ? "+" : "")+delta+" lb" : "Saved"); render();
+}
+function deleteMovement(id){
+  if(!S.custom[id]) return;
+  var u = usageOf(id), n = S.custom[id].n;
+  if(u.sets || u.draft) return toast(n+" has "+(u.sets + u.draft)+" logged set"+(u.sets + u.draft === 1 ? "" : "s")+" - it stays so history keeps its name");
+  if(u.where.length) return toast("Take it out of "+u.where.join(", ")+" first");
+  if(!confirm("Delete "+n+"? It has no logged sets and is not in any workout.")) return;
+  delete S.custom[id]; delete S.baselines[id]; delete entry[id];
+  mvEdit = null; save(); toast("Deleted"); render();
+}
+function restoreMovement(id){
+  if(!LIB[id] || !S.overrides[id]) return;
+  var o = S.overrides[id];
+  var msg = "Put "+exOf(id).n+" back to the built-in settings ("+LIB[id].n+")?";
+  if(o.base) msg += "\n\nSaved weights are totals and are not changed.";
+  if(!confirm(msg)) return;
+  var kindChanged = loadKind(exOf(id)) !== loadKind(LIB[id]);
+  delete S.overrides[id];
+  if(kindChanged) rederive(id);
+  delete entry[id];
+  mvEdit = null; save(); toast("Restored"); render();
+}
+/* The library panel: everything you made, then the built-ins on request. */
+function movementsPanel(){
+  function row(id){
+    var e = exOf(id), open = mvEdit === id;
+    var sub = esc(e.g)+' &middot; '+esc(rrLabel(e.rr))+' reps &middot; '+esc(e.unit)+(baseOf(e) ? ' &middot; '+baseOf(e)+' lb empty' : '');
+    return '<div class="erow'+(open ? ' open' : '')+'"><button class="en" onclick="openMv(\''+id+'\')">'+esc(e.n)
+      + (LIB[id] && S.overrides[id] ? '<span class="tag">edited</span>' : '')
+      + '<small>'+sub+'</small></button></div>'
+      + (open ? '<div class="mv-ed">'+mvForm(id)+'</div>' : '');
+  }
+  function byGroup(ids){
+    var last = null;
+    return ids.sort(function(a, b){
+      var ea = exOf(a), eb = exOf(b);
+      return ea.g === eb.g ? (ea.n < eb.n ? -1 : 1) : (ea.g < eb.g ? -1 : 1);
+    }).map(function(id){
+      var g = exOf(id).g, h = g !== last ? '<div class="mvgrp">'+esc(g)+'</div>' : '';
+      last = g; return h + row(id);
+    }).join("");
+  }
+  var mine = Object.keys(S.custom), lib = Object.keys(LIB);
+  return '<div class="panel"><h3>Movements</h3>'
+    + '<p>Create a movement without adding it to a workout, or fix one you already have. Changes apply everywhere it is used, in every program.</p>'
+    + (mvEdit === "new" ? '<div class="mv-ed">'+mvForm(null)+'</div>'
+      : '<button class="addbar" onclick="openMv(\'new\')">+ New movement</button>')
+    + '<div class="mvlist">'
+    + (mine.length ? '<div class="mvgrp" style="color:var(--txt-2)">Yours</div>' + byGroup(mine) : '')
+    + '</div>'
+    + '<button class="btn-o" style="margin-top:12px" onclick="libOpen=!libOpen;if(!libOpen&&mvEdit&&LIB[mvEdit])mvEdit=null;render()">'
+    + (libOpen ? 'Hide' : 'Show')+' built-in movements ('+lib.length+')</button>'
+    + (libOpen ? '<div class="mvlist">'+byGroup(lib)+'</div>' : '')
+    + '</div>';
 }
 function resetProgram(){
   var inst = S.instances[S.active];
@@ -2805,10 +3069,10 @@ function pruneInstances(){
 }
 function exportJSON(){
   var A = allEx(), lib = {};
-  for(var k in A){ var ex = A[k]; lib[k] = {n:ex.n, g:ex.g, rr:ex.rr, mult:ex.mult, step:ex.step, pct:ex.pct == null ? 5 : ex.pct, unit:ex.unit}; if(ex.bw) lib[k].bw = true; }
+  for(var k in A){ var ex = A[k]; lib[k] = {n:ex.n, g:ex.g, rr:ex.rr, mult:ex.mult, step:ex.step, pct:ex.pct == null ? 5 : ex.pct, unit:ex.unit}; if(ex.bw) lib[k].bw = true; if(ex.base) lib[k].base = ex.base; }
   var payload = {app:"hitlog", version:3, schema:3, exported:new Date().toISOString(),
                  instances:S.instances, active:S.active,
-                 sessions:S.sessions, draft:S.draft, program:prog(), custom:S.custom, library:lib,
+                 sessions:S.sessions, draft:S.draft, program:prog(), custom:S.custom, overrides:S.overrides, library:lib,
                  baselines:S.baselines, timer:S.timer};
   var blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   var a = document.createElement("a");
@@ -2831,7 +3095,8 @@ function importJSON(input){
       S = {schema:3, dateMigrated: wasV3 || d.dateMigrated === true,
            instances:d.instances, active:d.active,
            sessions:d.sessions, draft:d.draft || null,
-           custom:d.custom || {}, baselines:d.baselines || S.baselines || {},
+           custom:d.custom || {}, overrides:d.overrides || {},
+           baselines:d.baselines || S.baselines || {},
            /* A device setting, not log data: an export that predates it must
               not switch off a timer already set up on this phone. */
            timer:d.timer || S.timer || REST_DEFAULT()};
@@ -3074,7 +3339,7 @@ function playSplash(){
   var btns = document.querySelectorAll(".nav button");
   for(var i=0;i<btns.length;i++){
     btns[i].addEventListener("click", function(){
-      tab = this.dataset.tab; open_ = null; adding = false; addTo = null; altPick = null; newForm = false;
+      tab = this.dataset.tab; open_ = null; adding = false; addTo = null; altPick = null; newForm = false; mvEdit = null;
       editingDraft = null; histEdit = null; histEntry = null; render();
     });
   }
