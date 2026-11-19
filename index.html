@@ -2217,8 +2217,10 @@ function viewRecords(){
     + '<table class="prtab"><tr><th>Movement</th><th class="r">Best set</th><th class="r">Next target</th><th class="r">Ago</th></tr>'
     + rows.map(function(r){
         return '<tr><td class="n">'+esc(r.e.n)+(r.b && r.b.seeded ? ' <span style="color:var(--txt-3)">&middot;</span>' : '')+'</td>'
-          + '<td class="v r">'+(r.b ? r.b.reps+' &times; '+r.b.weight : '&mdash;')+'</td>'
-          + '<td class="e r">'+(r.t.weight === null ? '&mdash;' : r.t.reps+' &times; '+r.t.weight)+'</td>'
+          /* A plain bodyweight movement has no load to show, so its best and
+             its target read in reps ("9 reps"), not "9 x 0" and a dash. */
+          + '<td class="v r">'+(!r.b ? '&mdash;' : r.e.bw ? setText(r.e, r.b.reps, r.b.weight) : r.b.reps+' &times; '+r.b.weight)+'</td>'
+          + '<td class="e r">'+(r.t.bwEx ? r.t.reps+' reps' : r.t.weight === null ? '&mdash;' : r.t.reps+' &times; '+r.t.weight)+'</td>'
           + '<td class="v r">'+(r.since === null ? '&mdash;' : r.since+'d')+'</td></tr>'; }).join("")
     + '</table></div>';
 }
