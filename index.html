@@ -3054,7 +3054,10 @@ function mvRead(id){
   var n = v("mv_n"); if(!n){ toast("Name it first"); return null; }
   /* Two movements by one name cannot be told apart in a list or a record. */
   var A = allEx(), lower = n.toLowerCase();
-  var dupe = Object.keys(A).filter(function(k){ return k !== id && String(A[k].n).trim().toLowerCase() === lower; })[0];
+  /* Only a name being given now is checked: a movement that already shared its
+     name (say from an older version) can still be edited, or renamed out of it. */
+  var keeps = id && A[id] && String(A[id].n).trim().toLowerCase() === lower;
+  var dupe = keeps ? null : Object.keys(A).filter(function(k){ return k !== id && String(A[k].n).trim().toLowerCase() === lower; })[0];
   if(dupe){ toast("There is already a movement called "+A[dupe].n); return null; }
   var g = v("mv_g") === "__new" ? v("mv_g2") : v("mv_g");
   if(!g){ toast("Pick a muscle group"); return null; }
@@ -3236,10 +3239,13 @@ function movementsPanel(){
    template's own. */
 function renameProgram(){
   var inst = S.instances[S.active], t = TEMPLATES[inst.source];
-  var v = prompt("Program name (blank for "+(t ? t.name : "the original")+")", inst.name);
+  /* A carried-over program's own name is its original, not its new source's. */
+  var fm = inst.from && FORMER[inst.from];
+  var v = prompt("Program name (blank for "+(fm ? fm.name : t ? t.name : "the original")+")", inst.name);
   if(v === null) return;
   v = v.trim().slice(0, 60);
-  if(!v || (t && v === t.name)){ inst.name = t ? t.name : inst.name; delete inst.renamed; }
+  if(fm && !v){ inst.name = fm.name; inst.renamed = true; }
+  else if(!v || (t && v === t.name)){ inst.name = t ? t.name : inst.name; delete inst.renamed; }
   else { inst.name = v; inst.renamed = true; }
   save(); toast("Renamed"); render();
 }
@@ -3341,7 +3347,7 @@ function exportJSON(){
   for(var k in A){ var ex = A[k]; lib[k] = {n:ex.n, g:ex.g, rr:ex.rr, mult:ex.mult, step:ex.step, pct:ex.pct == null ? 5 : ex.pct, unit:ex.unit}; if(ex.bw) lib[k].bw = true; if(ex.base) lib[k].base = ex.base; }
   var payload = {app:"hitlog", version:3, schema:3, exported:new Date().toISOString(),
                  instances:S.instances, active:S.active,
-                 sessions:S.sessions, draft:S.draft, program:prog(), custom:S.custom, overrides:S.overrides, library:lib,
+                 sessions:S.sessions, draft:S.draft, program:prog(), custom:S.custom, overrides:S.overrides, promoted:S.promoted || {}, library:lib,
                  baselines:S.baselines, timer:S.timer};
   var blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   var a = document.createElement("a");
