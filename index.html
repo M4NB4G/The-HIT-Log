@@ -461,6 +461,9 @@ body.resting{padding-bottom:calc(146px + env(safe-area-inset-bottom))}
 .prtab th.r,.prtab td.r{text-align:right}
 .prtab td{padding:10px 0;border-top:1px solid var(--outline-soft)}
 .prtab td.n{max-width:150px}
+/* Numbers never touch the column beside them, and a set never breaks across
+   lines; a long movement name wraps instead. */
+.prtab th.r,.prtab td.r{padding-left:12px;white-space:nowrap}
 .prtab td.v{font-family:var(--mono);color:var(--txt-2);font-size:12px}
 .prtab td.e{font-family:var(--mono);font-weight:600;color:var(--blue)}
 
@@ -2216,11 +2219,14 @@ function viewRecords(){
     + '</p>'
     + '<table class="prtab"><tr><th>Movement</th><th class="r">Best set</th><th class="r">Next target</th><th class="r">Ago</th></tr>'
     + rows.map(function(r){
+        /* A monospace space is a full character wide; thin ones keep the
+           sign readable without doubling the width of every set. */
+        var X = '&thinsp;&times;&thinsp;';
         return '<tr><td class="n">'+esc(r.e.n)+(r.b && r.b.seeded ? ' <span style="color:var(--txt-3)">&middot;</span>' : '')+'</td>'
           /* A plain bodyweight movement has no load to show, so its best and
              its target read in reps ("9 reps"), not "9 x 0" and a dash. */
-          + '<td class="v r">'+(!r.b ? '&mdash;' : r.e.bw ? setText(r.e, r.b.reps, r.b.weight) : r.b.reps+' &times; '+r.b.weight)+'</td>'
-          + '<td class="e r">'+(r.t.bwEx ? r.t.reps+' reps' : r.t.weight === null ? '&mdash;' : r.t.reps+' &times; '+r.t.weight)+'</td>'
+          + '<td class="v r">'+(!r.b ? '&mdash;' : r.e.bw ? setText(r.e, r.b.reps, r.b.weight) : r.b.reps+X+r.b.weight)+'</td>'
+          + '<td class="e r">'+(r.t.bwEx ? r.t.reps+' reps' : r.t.weight === null ? '&mdash;' : r.t.reps+X+r.t.weight)+'</td>'
           + '<td class="v r">'+(r.since === null ? '&mdash;' : r.since+'d')+'</td></tr>'; }).join("")
     + '</table></div>';
 }
