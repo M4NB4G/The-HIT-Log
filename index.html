@@ -934,7 +934,7 @@ function migrateV2(d){
   var draft = d && d.draft ? Object.assign({}, d.draft, {instance: d.draft.instance || "i1"}) : null;
   if(draft){ draft.sets.forEach(function(x){ if(!x.endedWith){ x.endedWith = (x.failure === "Yes" || !x.failure) ? "clean" : "short"; } }); }
   return {schema:3,
-    instances:{i1:{source:"mentzer_ideal", name:"Persyn 3-Workout", renamed:true, edited:true,
+    instances:{i1:{source:"mentzer_ideal", from:"persyn", name:"Persyn 3-Workout", renamed:true, edited:true,
       rotation:["A","B","C"], rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
       program:p}},
     active:"i1", sessions:sessions, draft:draft,
@@ -969,16 +969,30 @@ function letterCodes(inst, d, instKey){
 /* ---- one-way library and program moves, run at load and on import ----
    Each returns true when it changed something, so load() knows to write. */
 const PROMOTED = {calfbent:"Seated Bent Knee Calf Raise", vlegpress:"Vertical Leg Press"};
-/* Units the old create form filled in by itself. Not a choice anyone made, so
-   they give way to the library's own label. */
-const AUTO_UNITS = {"load":1, "per dumbbell":1, "lb":1};
+/* Has anything already been recorded against a library id? Then a custom of
+   the same name is a different movement, and folding it in would mix two
+   histories that cannot be pulled apart again. */
+function libInUse(d, lid){
+  var hit = function(x){ return x.ex === lid; };
+  if((d.sessions || []).some(function(s){ return s.sets.some(hit); })) return true;
+  if(d.draft && d.draft.sets.some(hit)) return true;
+  return !!((d.baselines || {})[lid] || (d.overrides || {})[lid]);
+}
 function promoteCustom(d){
-  var map = {}, cust = d.custom || {};
-  for(var cid in cust){
-    var n = String(cust[cid].n || "").trim().toLowerCase();
-    for(var lid in PROMOTED) if(PROMOTED[lid].toLowerCase() === n){ map[cid] = lid; break; }
+  var map = {}, cust = d.custom || {}, changed = false;
+  d.promoted = d.promoted || {};
+  for(var lid in PROMOTED){
+    /* Considered once per device, ever. A custom made later with the same
+       name is the user's own and is never absorbed. */
+    if(d.promoted[lid]) continue;
+    d.promoted[lid] = 1; changed = true;
+    var want = PROMOTED[lid].toLowerCase();
+    var hits = Object.keys(cust).filter(function(cid){ return String(cust[cid].n || "").trim().toLowerCase() === want; });
+    /* Two customs by that name, or the id already used: leave them all be. */
+    if(hits.length !== 1 || libInUse(d, lid)) continue;
+    map[hits[0]] = lid;
   }
-  var ids = Object.keys(map); if(!ids.length) return false;
+  var ids = Object.keys(map); if(!ids.length) return changed;
   d.overrides = d.overrides || {}; d.baselines = d.baselines || {};
   ids.forEach(function(cid){
     var lid = map[cid], c = cust[cid], lib = LIB[lid], o = Object.assign({}, d.overrides[lid] || {});
@@ -987,7 +1001,12 @@ function promoteCustom(d){
     if(c.pct != null && c.pct !== (lib.pct == null ? 5 : lib.pct)) o.pct = c.pct;
     if(!!c.bw !== !!lib.bw) o.bw = !!c.bw;
     if(c.base) o.base = c.base;
-    if(c.unit && !AUTO_UNITS[c.unit] && c.unit !== lib.unit) o.unit = c.unit;
+    /* The old form filled the unit in from the load type. That default gives
+       way to the library's label only when the load type is the library's
+       too; a per-dumbbell custom keeps saying so. */
+    var ck = c.bw ? "bw" : c.mult === 2 ? "2" : "1", lk = lib.bw ? "bw" : lib.mult === 2 ? "2" : "1";
+    var auto = c.unit === ({"bw":"lb","2":"per dumbbell","1":"load"})[ck];
+    if(c.unit && !(auto && ck === lk) && c.unit !== lib.unit) o.unit = c.unit;
     if(Object.keys(o).length) d.overrides[lid] = o;
     if(d.baselines[cid] && !d.baselines[lid]) d.baselines[lid] = d.baselines[cid];
     delete d.baselines[cid];
@@ -1035,13 +1054,26 @@ function pruneOverrides(d){
    workouts. It is now carried as your own customised copy of Ideal, so the
    template list holds only published Mentzer and Yates routines. Program,
    rotation, rest and name are untouched. */
+/* What a carried-over program says about itself, now that the template it
+   came from is gone. Shown in place of the Ideal's own text, which describes
+   a four-workout routine this is not. */
+const FORMER = {
+  persyn:{name:"Persyn 3-Workout",
+    blurb:"Your version of the Mentzer Ideal Routine, compressed from four workouts to three so nothing waits four weeks to come around again. Same principles, same one-set-to-failure structure.",
+    structure:"One all-out set per exercise, taken to failure. Double progression on reps, then weight.",
+    source:"Based on the Mentzer Ideal Routine (Little & Mentzer, High-Intensity Training the Mike Mentzer Way, 2003), compressed from four workouts to three."}
+};
 function rebaseInstances(d){
   var changed = false;
   for(var ik in d.instances || {}){
     var inst = d.instances[ik];
     if(inst.source === "persyn"){
-      inst.source = "mentzer_ideal"; inst.renamed = true; inst.edited = true;
-      if(!inst.name) inst.name = "Persyn 3-Workout";
+      inst.source = "mentzer_ideal"; inst.from = "persyn"; inst.renamed = true; inst.edited = true;
+      if(!inst.name) inst.name = FORMER.persyn.name;
+      /* A very early copy may predate rotation and rest. Backfilling from
+         Ideal later would hand a three-workout program a fourth workout. */
+      if(!inst.rotation) inst.rotation = ["A","B","C"];
+      if(!inst.rest) inst.rest = {interSession:[6,8], perCode:[18,24], primary:"perCode"};
       changed = true;
     }
   }
@@ -2332,7 +2364,7 @@ function slotSub(c, it){
 function viewData(){
   var inst = S.instances[S.active];
   var rot = rotation();
-  var tmpl = TEMPLATES[inst.source];
+  var tmpl = TEMPLATES[inst.source], former = inst.from && FORMER[inst.from];
   var nSets = S.sessions.reduce(function(a,s){ return a + s.sets.length; }, 0);
 
   /* Instance switcher. A select rather than a row of pills: the count is
@@ -2369,7 +2401,7 @@ function viewData(){
         : rot[0]+" &middot; the same workout each time")
     + row("Between workouts", winText(sessionWindow()))
     + (rot.length > 1 ? row("Each returns", "every "+winText(groupWindow())) : "")
-    + (tmpl && tmpl.structure ? row("Sets", esc(tmpl.structure)) : "")
+    + (former ? row("Sets", esc(former.structure)) : tmpl && tmpl.structure ? row("Sets", esc(tmpl.structure)) : "")
     + '</div>';
 
   /* A break-in leads somewhere. Offered, never automatic - the book's trigger
@@ -2380,7 +2412,8 @@ function viewData(){
       + '<button class="btn-o" onclick="createInstance(\''+tmpl.successor+'\')">Start '+esc(nextTmpl.name)+'</button></div>'
     : '';
 
-  var cite = tmpl
+  var cite = former ? '<div class="cite"><b>Your version.</b> '+esc(former.source)+'</div>'
+    : tmpl
     ? '<div class="cite">'+(tmpl.adapted ? '<b>Adapted.</b> ' : '<b>As published.</b> ')+esc(tmpl.source)+'</div>'
     : '';
 
@@ -2418,8 +2451,10 @@ function viewData(){
   /* Template picker */
   /* The program you are on sits at the top, then the rest by set structure.
      It is omitted from its own group so it appears once, not twice. */
-  var tplHtml = (TEMPLATES[inst.source] ? tplCard(inst.source, true) : '')
-    + templateGroups(inst.source);
+  /* A carried-over program is not the template it now points at, so that
+     template is listed with the rest rather than pinned on top as current. */
+  var tplHtml = (!former && TEMPLATES[inst.source] ? tplCard(inst.source, true) : '')
+    + templateGroups(former ? null : inst.source);
 
   /* Rest timer. In Program rather than in the session, because it is a
      standing preference, not a decision to make between sets. */
@@ -2461,7 +2496,7 @@ function viewData(){
   return instPicker
     + '<div class="panel"><div class="ph-row"><h3>'+esc(inst.name)+(inst.edited ? ' <span style="color:var(--txt-3);font-weight:400;font-size:12px">edited</span>' : '')+'</h3>'
     + '<button class="mini ren" onclick="renameProgram()">Rename</button></div>'
-    + (tmpl && tmpl.blurb ? '<p>'+esc(tmpl.blurb)+'</p>' : '')
+    + (former ? '<p>'+esc(former.blurb)+'</p>' : tmpl && tmpl.blurb ? '<p>'+esc(tmpl.blurb)+'</p>' : '')
     + runs + cite + nextNote + staleNote
     + '<p>Tap a workout to add, remove or reorder movements. Tap a movement to have it take turns with another, or to change which one is up next.</p>'
     + progHtml
@@ -3017,6 +3052,10 @@ function baselineFields(id){
 function mvRead(id){
   var v = function(k){ var el = document.getElementById(k); return el ? String(el.value || "").trim() : ""; };
   var n = v("mv_n"); if(!n){ toast("Name it first"); return null; }
+  /* Two movements by one name cannot be told apart in a list or a record. */
+  var A = allEx(), lower = n.toLowerCase();
+  var dupe = Object.keys(A).filter(function(k){ return k !== id && String(A[k].n).trim().toLowerCase() === lower; })[0];
+  if(dupe){ toast("There is already a movement called "+A[dupe].n); return null; }
   var g = v("mv_g") === "__new" ? v("mv_g2") : v("mv_g");
   if(!g){ toast("Pick a muscle group"); return null; }
   var rr = (v("mv_r") || "6-12").replace(/\s/g, "");
@@ -3216,6 +3255,9 @@ function renameFocus(c){
 function resetProgram(){
   var inst = S.instances[S.active];
   var t = TEMPLATES[inst.source];
+  /* Resetting would swap the three workouts for Ideal's four, and the
+     original cannot be rebuilt afterwards. */
+  if(inst.from){ toast("This is your own version - there is no template to reset it to"); return; }
   if(!t){ toast("Source template not found"); return; }
   if(!confirm("Reset all workouts to the "+t.name+" template? Logged sessions are kept.")) return;
   inst.program = JSON.parse(JSON.stringify(t.days));
@@ -3360,7 +3402,7 @@ function importJSON(input){
          compounding on each export/import round trip. */
       var wasV3 = d.schema === 3;
       if(!d.schema || d.schema < 3) d = migrateV2(d);
-      S = {schema:3, dateMigrated: wasV3 || d.dateMigrated === true,
+      var nd = {schema:3, dateMigrated: wasV3 || d.dateMigrated === true,
            instances:d.instances, active:d.active,
            sessions:d.sessions, draft:d.draft || null,
            custom:d.custom || {}, overrides:d.overrides || {},
@@ -3369,8 +3411,12 @@ function importJSON(input){
               not switch off a timer already set up on this phone. */
            timer:d.timer || S.timer || REST_DEFAULT(),
            /* The file just loaded is itself a backup of everything now here. */
-           lastExport:new Date().toISOString(), exportedOnce:true};
-      normalizeData(S);
+           lastExport:new Date().toISOString(), exportedOnce:true,
+           promoted:d.promoted || {}};
+      /* Normalised before it replaces anything, so a file that fails here
+         leaves the current log exactly as it was. */
+      normalizeData(nd);
+      S = nd;
       deriveBodyweight();
       save(); toast("Imported "+d.sessions.length+" sessions"); render();
     }catch(e){ toast("That is not a HIT Log export"); }
