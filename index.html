@@ -586,7 +586,7 @@ const LIB = {
   squat:    {n:"Smith Machine Squat",       g:"Quads",           rr:"12-20", mult:1, step:10, unit:"total bar",        baseSet:"", baseOn:""},
   legcurl:  {n:"Seated Leg Curl",           g:"Hamstrings",      rr:"12-20", mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
   donkey:   {n:"Donkey Calf Raise",         g:"Calves",          rr:"12-20", mult:1, step:20, unit:"total load",       baseSet:"", baseOn:""},
-  calf:     {n:"Seated Calf Raise",         g:"Calves",          rr:"12-20", mult:1, step:10, unit:"total load",       baseSet:"", baseOn:""},
+  calf:     {n:"Seated Straight Leg Calf Raise", g:"Calves",          rr:"12-20", mult:1, step:10, unit:"total load",       baseSet:"", baseOn:""},
   abs:      {n:"Ab Machine",                g:"Abs",             rr:"12-20", mult:1, step:10, unit:"stack",            baseSet:"", baseOn:""},
   facepull: {n:"Seated Face Pulls",         g:"Rear Delts",      rr:"14-20", mult:1, step:5,  unit:"stack",            baseSet:"", baseOn:""},
   lateral:  {n:"DB Lateral Raise",          g:"Delts",           rr:"6-12",  mult:2, step:5,  unit:"per dumbbell",     baseSet:"", baseOn:""},
@@ -626,7 +626,12 @@ const LIB = {
   /* Filed under the group the deadlift already uses rather than opening a
      near-duplicate "Erectors" chip beside it. */
   hyper:      {n:"Hyperextension",            g:"Posterior Chain", rr:"8-15",  mult:1, step:5,  unit:"lb",  bw:true,     baseSet:"", baseOn:""},
-  bbincline:  {n:"Incline Barbell Press",     g:"Chest",           rr:"6-10",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""}
+  bbincline:  {n:"Incline Barbell Press",     g:"Chest",           rr:"6-10",  mult:1, step:5,  unit:"total bar",        baseSet:"", baseOn:""},
+  /* Started life as custom movements on one phone. promoteCustom() moves
+     anyone's custom copy, matched by name, onto these ids. No empty weight
+     ships: a sled weighs what it weighs at your gym, so that stays yours. */
+  calfbent:   {n:"Seated Bent Knee Calf Raise", g:"Calves",        rr:"12-20", mult:1, step:10, unit:"total load",       baseSet:"", baseOn:""},
+  vlegpress:  {n:"Vertical Leg Press",        g:"Quads",           rr:"12-20", mult:1, step:10, unit:"total sled",       baseSet:"", baseOn:""}
 };
 
 /* One user's archived lifts used to be hardcoded here and seeded into any
@@ -641,16 +646,14 @@ const LIB = {
      Y2 = Yates two-heavy-set (6-10 default rr)
      YL = Yates two-heavy-set, lower-body cycled rr
      YC = Yates two-heavy-set, calf (12-20)
-     P2 = Perez two-heavy-set (8-12 fixed)
    ============================================================ */
-/* Yates and Perez: BOTH sets go to failure. The second is not a lighter
+/* Yates: BOTH sets go to failure. The second is not a lighter
    "easier" set - it is a second all-out effort at 90% of the first. The roles
    only say which set anchors progression: the top set does, and the back-off
    follows its load, so the back-off never earns a weight jump on its own. */
 var Y2 = [{role:"top"},{role:"working",progression:"follow",loadFactor:0.9}];
 var YL = [{role:"top",rrAlt:["8-10","15-20"]},{role:"working",progression:"follow",loadFactor:0.9,rrAlt:["8-10","15-20"]}];
 var YC = [{role:"top",rr:"12-20"},{role:"working",progression:"follow",loadFactor:0.9,rr:"12-20"}];
-var P2 = [{role:"top",rr:"8-12"},{role:"working",progression:"follow",loadFactor:0.9,rr:"8-12"}];
 
 /* Heavy Duty Origins: 6-9 reps, and the weight goes up 10% once nine come up
    (p.50, point 5). O1 is a slot done once, O2 a cycle run twice. The second
@@ -715,19 +718,6 @@ const TEMPLATES = {
                {ex:"legpress",sets:[{role:"top",rr:"12-20"}]},
                {ex:"stdcalf",sets:[{role:"top",rr:"12-20"}]},
                {ex:"situp",sets:[{role:"top",rr:"12-20"}]}]}
-    }
-  },
-  persyn:{
-    name:"Persyn 3-Workout",
-    blurb:"The Mentzer Ideal Routine, compressed from four workouts to three so nothing waits four weeks to come around again. Same principles, same one-set-to-failure structure — only the split is shortened.",
-    structure:"One all-out set per exercise, taken to failure. Double progression on reps, then weight.",
-    source:"Adapted from Mentzer, High-Intensity Training the Mike Mentzer Way (2003), compressed from four workouts to three.",
-    adapted:true, rotation:["A","B","C"],
-    rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
-    days:{
-      A:{focus:"Chest & Back",list:["fly","incline","flat","pullover","pulldown","row","deadlift"]},
-      B:{focus:"Legs & Abs",list:["legext",{alt:["legpress","squat"]},"legcurl",{alt:["donkey","calf"]},"abs"]},
-      C:{focus:"Shoulders & Arms",list:["lateral","revfly","curl","bbcurl","pushdown","dips","facepull"]}
     }
   },
   mentzer_hd93:{
@@ -871,33 +861,6 @@ const TEMPLATES = {
                {alt:["bentlat","revfly"],sets:Y2}]}
     }
   },
-  perez:{
-    name:"Perez 4-Workout",
-    blurb:"Four workouts inside a week, so every body part comes around every seven days.",
-    structure:"Two heavy sets per exercise at 8–12 reps, both taken to failure. The second is at 90% of the first.",
-    source:"Split and schedule per Perez. Movement selection seeded from Yates, Blood and Guts (1992) p.114 — edit to taste.",
-    adapted:true, rotation:["A","B","C","D"],
-    rest:{interSession:[1,2],perCode:[7,7],primary:"perCode"},
-    days:{
-      A:{focus:"Chest & Biceps",
-         list:[{ex:"bbbench",sets:P2},{ex:"incline",sets:P2},{ex:"fly",sets:P2},
-               {ex:"concurl",sets:P2},{ex:"hammercurl",sets:P2}]},
-      B:{focus:"Back & Abs",
-         note:"One vertical pull and one horizontal pull per session, always one cable and one free-weight movement. B alternates: pulldown with barbell row, then chins with cable row. Either way these hit biceps ~24h after A.",
-         list:[{ex:"pullover",sets:P2},
-               {alt:["pulldown","chins"],sets:P2},
-               {alt:["bbrow","row"],sets:P2},
-               {ex:"crunch",sets:P2},{ex:"hangleg",sets:P2}]},
-      C:{focus:"Legs",note:"Alternates leg curl and SLDL each workout (sourced from Yates p.118).",
-         list:[{ex:"legext",sets:P2},{alt:["legpress","hacksquat"],sets:P2},
-               {ex:"squat",sets:P2},{alt:["legcurl","sldl"],sets:P2},
-               {ex:"stdcalf",sets:P2},{ex:"calf",sets:P2}]},
-      D:{focus:"Shoulders & Triceps",note:"Traps are covered by the shrug slot, which is not sourced from Yates — filled from general practice.",
-         list:[{ex:"pbn",sets:P2},{ex:"lateral",sets:P2},
-               {alt:["bentlat","revfly"],sets:P2},{ex:"shrug",sets:P2},
-               {ex:"pushdown",sets:P2},{ex:"ezext",sets:P2}]}
-    }
-  },
   mentzer_breakin:{
     name:"Mentzer Break-In",
     blurb:"Five consecutive days of one easy set per exercise, for a beginner or anyone coming back from a layoff. Nothing here is taken to failure and no weight goes up — that is the point, not a shortcut.",
@@ -971,7 +934,7 @@ function migrateV2(d){
   var draft = d && d.draft ? Object.assign({}, d.draft, {instance: d.draft.instance || "i1"}) : null;
   if(draft){ draft.sets.forEach(function(x){ if(!x.endedWith){ x.endedWith = (x.failure === "Yes" || !x.failure) ? "clean" : "short"; } }); }
   return {schema:3,
-    instances:{i1:{source:"persyn", name:"Persyn 3-Workout", edited:isEdited,
+    instances:{i1:{source:"mentzer_ideal", name:"Persyn 3-Workout", renamed:true, edited:true,
       rotation:["A","B","C"], rest:{interSession:[6,8],perCode:[18,24],primary:"perCode"},
       program:p}},
     active:"i1", sessions:sessions, draft:draft,
@@ -1003,6 +966,91 @@ function letterCodes(inst, d, instKey){
   return true;
 }
 
+/* ---- one-way library and program moves, run at load and on import ----
+   Each returns true when it changed something, so load() knows to write. */
+const PROMOTED = {calfbent:"Seated Bent Knee Calf Raise", vlegpress:"Vertical Leg Press"};
+/* Units the old create form filled in by itself. Not a choice anyone made, so
+   they give way to the library's own label. */
+const AUTO_UNITS = {"load":1, "per dumbbell":1, "lb":1};
+function promoteCustom(d){
+  var map = {}, cust = d.custom || {};
+  for(var cid in cust){
+    var n = String(cust[cid].n || "").trim().toLowerCase();
+    for(var lid in PROMOTED) if(PROMOTED[lid].toLowerCase() === n){ map[cid] = lid; break; }
+  }
+  var ids = Object.keys(map); if(!ids.length) return false;
+  d.overrides = d.overrides || {}; d.baselines = d.baselines || {};
+  ids.forEach(function(cid){
+    var lid = map[cid], c = cust[cid], lib = LIB[lid], o = Object.assign({}, d.overrides[lid] || {});
+    /* Whatever you had set that differs from what ships stays yours. */
+    ["n","g","rr","mult","step"].forEach(function(k){ if(c[k] != null && c[k] !== lib[k]) o[k] = c[k]; });
+    if(c.pct != null && c.pct !== (lib.pct == null ? 5 : lib.pct)) o.pct = c.pct;
+    if(!!c.bw !== !!lib.bw) o.bw = !!c.bw;
+    if(c.base) o.base = c.base;
+    if(c.unit && !AUTO_UNITS[c.unit] && c.unit !== lib.unit) o.unit = c.unit;
+    if(Object.keys(o).length) d.overrides[lid] = o;
+    if(d.baselines[cid] && !d.baselines[lid]) d.baselines[lid] = d.baselines[cid];
+    delete d.baselines[cid];
+    delete cust[cid];
+  });
+  var sw = function(x){ return map[x] || x; };
+  var swSlot = function(it){
+    if(typeof it === "string") return sw(it);
+    if(it.ex) it.ex = sw(it.ex);
+    if(it.alt) it.alt = it.alt.map(sw);
+    return it;
+  };
+  (d.sessions || []).forEach(function(s){ s.sets.forEach(function(x){ x.ex = sw(x.ex); }); });
+  if(d.draft){
+    d.draft.sets.forEach(function(x){ x.ex = sw(x.ex); });
+    if(d.draft.order) d.draft.order = d.draft.order.map(sw);
+    if(d.draft.slotMap){
+      var sm = {};
+      for(var k in d.draft.slotMap){ sm[sw(k)] = d.draft.slotMap[k]; if(sm[sw(k)].alt) sm[sw(k)].alt = sm[sw(k)].alt.map(sw); }
+      d.draft.slotMap = sm;
+    }
+  }
+  for(var ik in d.instances || {}){
+    var p = d.instances[ik].program || {};
+    for(var c2 in p) p[c2].list = p[c2].list.map(swSlot);
+  }
+  return true;
+}
+/* Drop override fields that now match the library, e.g. a rename the library
+   has since caught up with. */
+function pruneOverrides(d){
+  var changed = false, o = d.overrides || {};
+  for(var id in o){
+    var lib = LIB[id], ov = o[id];
+    if(!lib){ continue; }
+    for(var k in ov){
+      var libv = k === "pct" ? (lib.pct == null ? 5 : lib.pct) : k === "bw" ? !!lib.bw : k === "base" ? (lib.base || 0) : lib[k];
+      if(ov[k] === libv){ delete ov[k]; changed = true; }
+    }
+    if(!Object.keys(ov).length){ delete o[id]; changed = true; }
+  }
+  return changed;
+}
+/* The Persyn routine was always the Mentzer Ideal compressed to three
+   workouts. It is now carried as your own customised copy of Ideal, so the
+   template list holds only published Mentzer and Yates routines. Program,
+   rotation, rest and name are untouched. */
+function rebaseInstances(d){
+  var changed = false;
+  for(var ik in d.instances || {}){
+    var inst = d.instances[ik];
+    if(inst.source === "persyn"){
+      inst.source = "mentzer_ideal"; inst.renamed = true; inst.edited = true;
+      if(!inst.name) inst.name = "Persyn 3-Workout";
+      changed = true;
+    }
+  }
+  return changed;
+}
+function normalizeData(d){
+  var a = rebaseInstances(d), b = promoteCustom(d), c = pruneOverrides(d);
+  return a || b || c;
+}
 var LOAD_BAD = false;
 function load(){
   let d;
@@ -1052,6 +1100,7 @@ function load(){
     var firstKey = Object.keys(d.instances)[0];
     d.active = firstKey || null;
   }
+  if(normalizeData(d) && HAS_LS && !LOAD_BAD){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
   /* Instances copy their name at creation, so renaming a template would leave
      older copies showing the old label. The template is the authority for
      any instance you have not named yourself. */
@@ -3193,7 +3242,9 @@ function createInstance(templateId){
      untouched copy already sitting there or asks first. */
   /* hasProgram() is false on first run, where there is no current source to
      compare against and every tap is a first choice rather than a duplicate. */
-  if(hasProgram() && S.instances[S.active].source === templateId){ toast("Already on "+t.name); return; }
+  /* Only an untouched copy is "already" this template. One you have made your
+     own is something else now; the confirm below offers a fresh copy. */
+  if(hasProgram() && S.instances[S.active].source === templateId && !S.instances[S.active].edited){ toast("Already on "+t.name); return; }
   var mine = Object.keys(S.instances).filter(function(k){ return S.instances[k].source === templateId; });
   var spare = mine.filter(isSpare)[0];
   if(spare){ switchInstance(spare); toast("Switched to "+t.name); return; }
@@ -3319,6 +3370,7 @@ function importJSON(input){
            timer:d.timer || S.timer || REST_DEFAULT(),
            /* The file just loaded is itself a backup of everything now here. */
            lastExport:new Date().toISOString(), exportedOnce:true};
+      normalizeData(S);
       deriveBodyweight();
       save(); toast("Imported "+d.sessions.length+" sessions"); render();
     }catch(e){ toast("That is not a HIT Log export"); }
